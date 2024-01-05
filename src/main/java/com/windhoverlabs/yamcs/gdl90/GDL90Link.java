@@ -38,8 +38,9 @@ import com.windhoverlabs.yamcs.csv.api.EvsCSVMode;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.SocketException;
-import java.nio.file.FileSystems;
+import java.net.UnknownHostException;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.yamcs.Spec;
 import org.yamcs.TmPacket;
 import org.yamcs.YConfiguration;
@@ -106,10 +108,11 @@ public class GDL90Link extends AbstractTmDataLink
   private DatagramSocket foreFlightSocket;
   private DatagramSocket GDL90Socket;
 
-  int MAX_LENGTH = 32 * 1024;
+  //  int MAX_LENGTH = 32 * 1024;
+  int MAX_LENGTH = 32;
   DatagramPacket foreFlightdatagram = new DatagramPacket(new byte[MAX_LENGTH], MAX_LENGTH);
 
-  DatagramPacket GDL90datagram = new DatagramPacket(new byte[MAX_LENGTH], MAX_LENGTH);
+  DatagramPacket GDL90Datagram;
 
   /* Constants */
   static final byte[] CFE_FS_FILE_CONTENT_ID_BYTE =
@@ -149,21 +152,36 @@ public class GDL90Link extends AbstractTmDataLink
       foreFlightSocket = new DatagramSocket(63093);
 
       // TODO: Port will eventually be read from brodacasted JSON on 63093 from ForeFlight
-      GDL90Socket = new DatagramSocket(4000);
+      try {
+        GDL90Socket = new DatagramSocket();
+        GDL90Datagram =
+            new DatagramPacket(
+                new byte[MAX_LENGTH], MAX_LENGTH, InetAddress.getByName("172.16.100.93"), 4000);
+      } catch (UnknownHostException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
     } catch (SocketException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-    /* Create the WatchService from the file system.  We're going to use this later to monitor
-     * the files and directories in YAMCS Buckets. */
-    try {
-      watcher = FileSystems.getDefault().newWatchService();
-    } catch (IOException e1) {
-      e1.printStackTrace();
-    }
-    /* Iterate through the bucket and create a WatchKey on the path.  This will be used in the
-    main
-        * thread to get notification of any new or modified files. */
+
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (isRunningAndEnabled()) {
+            try {
+              sendHeartbeat();
+              //              sendOwnshipReport();
+
+            } catch (IOException e) {
+              // TODO Auto-generated catch block
+              e.printStackTrace();
+            }
+          }
+        },
+        100,
+        1000,
+        TimeUnit.MILLISECONDS);
   }
 
   @Override
@@ -252,14 +270,35 @@ public class GDL90Link extends AbstractTmDataLink
       //      }
       //      }
 
-      try {
-        GDL90Socket.receive(GDL90datagram);
-        System.out.println("Heartbeat:" + Arrays.toString(GDL90datagram.getData()));
-      } catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
+      //      try {
+      //        //    	  At the moment ForeFlight only looks at the GPSPosValid flag and ignores
+      // everything
+      //        // else in the heartbeat message
+      ////        sendHeartbeat();
+      //
+      //      } catch (IOException e) {
+      //        // TODO Auto-generated catch block
+      //        e.printStackTrace();
+      //      }
     }
+  }
+
+  private void sendHeartbeat() throws IOException {
+    GDL90Heartbeat beat = new GDL90Heartbeat();
+    beat.GPSPosValid = true;
+    GDL90Datagram.setData(beat.toBytes());
+    System.out.println(
+        "Sending Heartbeat:"
+            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
+    GDL90Socket.send(GDL90Datagram);
+  }
+
+  private void sendOwnshipReport() throws IOException {
+    OwnshipReport ship = new OwnshipReport();
+    //	    beat.GPSPosValid = true;
+    GDL90Datagram.setData(ship.toBytes());
+    System.out.println("Sending OwnshipReport:" + Arrays.toString(GDL90Datagram.getData()));
+    GDL90Socket.send(GDL90Datagram);
   }
 
   public TmPacket getNextPacket() {
