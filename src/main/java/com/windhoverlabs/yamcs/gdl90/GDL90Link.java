@@ -34,7 +34,6 @@
 package com.windhoverlabs.yamcs.gdl90;
 
 import com.google.common.io.BaseEncoding;
-import com.windhoverlabs.yamcs.csv.api.EvsCSVMode;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -44,7 +43,6 @@ import java.net.UnknownHostException;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -120,19 +118,9 @@ public class GDL90Link extends AbstractTmDataLink
 
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
-  private EvsCSVMode mode;
-
   private boolean foreFlighConnected = false;
 
   String GDL90Hostname;
-
-  public EvsCSVMode getMode() {
-    return mode;
-  }
-
-  public void setMode(EvsCSVMode mode) {
-    this.mode = mode;
-  }
 
   Integer appNameMax;
   Integer eventMsgMax;
@@ -170,6 +158,7 @@ public class GDL90Link extends AbstractTmDataLink
         () -> {
           if (isRunningAndEnabled()) {
             try {
+              System.out.println("Triggered");
               sendHeartbeat();
               //              sendOwnshipReport();
 
@@ -285,7 +274,7 @@ public class GDL90Link extends AbstractTmDataLink
 
   private void sendHeartbeat() throws IOException {
     GDL90Heartbeat beat = new GDL90Heartbeat();
-    beat.GPSPosValid = true;
+    //    beat.GPSPosValid = true;
     GDL90Datagram.setData(beat.toBytes());
     System.out.println(
         "Sending Heartbeat:"
@@ -294,11 +283,11 @@ public class GDL90Link extends AbstractTmDataLink
   }
 
   private void sendOwnshipReport() throws IOException {
-    OwnshipReport ship = new OwnshipReport();
-    //	    beat.GPSPosValid = true;
-    GDL90Datagram.setData(ship.toBytes());
-    System.out.println("Sending OwnshipReport:" + Arrays.toString(GDL90Datagram.getData()));
-    GDL90Socket.send(GDL90Datagram);
+    //    OwnshipReport ship = new OwnshipReport();
+    //    //	    beat.GPSPosValid = true;
+    //    GDL90Datagram.setData(ship.toBytes());
+    //    System.out.println("Sending OwnshipReport:" + Arrays.toString(GDL90Datagram.getData()));
+    //    GDL90Socket.send(GDL90Datagram);
   }
 
   public TmPacket getNextPacket() {

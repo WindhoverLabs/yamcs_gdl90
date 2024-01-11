@@ -28,7 +28,7 @@ public class GDL90API extends AbstractCSVModeApi<Context> {
       observer.complete();
       return;
     }
-    ((com.windhoverlabs.yamcs.gdl90.GDL90Link) l).setMode(request.getMode());
-    observer.complete(EvsCSVModeConfig.newBuilder().build());
+    //    ((com.windhoverlabs.yamcs.gdl90.GDL90Link) l).setMode(request.getMode());
+    //    observer.complete(EvsCSVModeConfig.newBuilder().build());
   }
 }

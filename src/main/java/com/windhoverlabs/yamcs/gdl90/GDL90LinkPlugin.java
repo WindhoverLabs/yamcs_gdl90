@@ -38,7 +38,7 @@ public class GDL90LinkPlugin implements Plugin {
       throw new PluginException(e);
     }
 
-    httpServer.addApi(new org.yamcs.http.api.GDL90API());
+    //    httpServer.addApi(new org.yamcs.http.api.GDL90API());
   }
 
   /**
