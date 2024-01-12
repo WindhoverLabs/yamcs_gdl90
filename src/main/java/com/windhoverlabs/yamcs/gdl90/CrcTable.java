@@ -34,27 +34,19 @@ public class CrcTable {
     0x2e93, 0x3eb2, 0x0ed1, 0x1ef0,
   };
 
-  static int crc16_ccitt(byte[] data, int offset, int length) {
+  public static int crcCompute(byte[] buffer, int offset, int length) {
     int mask16bit = 0xffff;
-    int crc = 0;
 
-    for (int i = offset; i < length; i++) {
-      int m = ((crc << 8) & mask16bit);
-      crc = (crcTable[crc >> 8] ^ m ^ data[i]);
-      System.out.println("crc16_ccitt i:" + i);
+    int crc = 0;
+    for (int i = offset; i < length + offset; i++) {
+      int m = (crc << 8) & mask16bit;
+      //      Ensure we are using the unsigned byte (the algorithm makes an assumption that the byte
+      // we are using is unsigned)
+      int data = Byte.toUnsignedInt(buffer[i]);
+
+      crc = crcTable[crc >> 8] ^ m ^ data;
     }
 
-    //    for (int i = offset; i < length; i++) {
-    //      crc = crcTable[crc >> 8] ^ (crc << 8) ^ data[i];
-    //      System.out.println("crc16_ccitt i:" + i);
-    //    }
     return crc;
-
-    //		for (byte c : data) {
-    //			int m = ((crc << 8) & mask16bit);
-    //			crc =  (crcTable[crc >> 8] ^ m ^ c);
-    //		}
-
-    //    return crc;
   }
 }

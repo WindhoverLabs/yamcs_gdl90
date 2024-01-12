@@ -160,6 +160,7 @@ public class GDL90Link extends AbstractTmDataLink
             try {
               System.out.println("Triggered");
               sendHeartbeat();
+              sendOwnshipReport();
               //              sendOwnshipReport();
 
             } catch (IOException e) {
@@ -274,7 +275,7 @@ public class GDL90Link extends AbstractTmDataLink
 
   private void sendHeartbeat() throws IOException {
     GDL90Heartbeat beat = new GDL90Heartbeat();
-    beat.GPSPosValid = false;
+    beat.GPSPosValid = true;
     GDL90Datagram.setData(beat.toBytes());
     System.out.println(
         "Sending Heartbeat:"
@@ -283,11 +284,14 @@ public class GDL90Link extends AbstractTmDataLink
   }
 
   private void sendOwnshipReport() throws IOException {
-    //    OwnshipReport ship = new OwnshipReport();
-    //    //	    beat.GPSPosValid = true;
-    //    GDL90Datagram.setData(ship.toBytes());
-    //    System.out.println("Sending OwnshipReport:" + Arrays.toString(GDL90Datagram.getData()));
-    //    GDL90Socket.send(GDL90Datagram);
+
+    com.windhoverlabs.yamcs.gdl90.OwnshipReport beat =
+        new com.windhoverlabs.yamcs.gdl90.OwnshipReport();
+    GDL90Datagram.setData(beat.toBytes());
+    System.out.println(
+        "Sending Heartbeat:"
+            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
+    GDL90Socket.send(GDL90Datagram);
   }
 
   public TmPacket getNextPacket() {
