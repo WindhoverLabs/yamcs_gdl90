@@ -1,5 +1,6 @@
 package com.windhoverlabs.yamcs.gdl90;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
 /**
@@ -39,6 +40,80 @@ public class OwnshipReport {
   public int Miscellaneous;
 
   public byte[] toBytes() {
+
+    ByteArrayOutputStream messageStream = minimallyFunctionalMessage();
+
+    System.out.println("toBytes5");
+
+    byte[] dataOut = messageStream.toByteArray();
+
+    System.out.println("Size of dataOut:" + dataOut.length);
+    return dataOut;
+  }
+
+  private ByteArrayOutputStream minimallyFunctionalMessage() {
+    // Minimally functional message for ForeFlight
+    // TODO:Write unit test
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    System.out.println("toBytes1");
+    byte[] data = exampleMesssage();
+    messageStream.write(FlagByte);
+
+    messageStream.write(MessageID);
+    System.out.println("toBytes2");
+
+    messageStream.write(0x00);
+    messageStream.write(0xAB); // "Magic" Byte that makes ForeFlight recognize the device
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0xA9); // "Magic" Byte that makes ForeFlight recognize the device
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+
+    System.out.println("toBytes3");
+
+    // CRC
+
+    //    TODO:Offset needs to be re-calculated for escape characters
+    byte[] crcData = messageStream.toByteArray();
+    int crc = CrcTable.crcCompute(crcData, 1, crcData.length - 1);
+
+    //
+    // Go through message data and escape characters as per the spec
+    // ....
+    //
+
+    byte[] crcBytes = ByteBuffer.allocate(4).putInt(crc).array();
+    messageStream.write(crcBytes[3]);
+    messageStream.write(crcBytes[2]);
+
+    System.out.println("toBytes4:" + messageStream.size());
+    messageStream.write(FlagByte);
+    return messageStream;
+  }
+
+  private byte[] exampleMesssage() {
+    // TODO: Use this message for unit tests
     //	  Minimum length: message length(including Message ID) + 2 Flag Bytes+ CRC16(2 bytes)
     byte[] data = new byte[32];
     data[0] = FlagByte;
@@ -89,7 +164,6 @@ public class OwnshipReport {
     data[data.length - 3] = crcBytes[3];
     data[data.length - 2] = crcBytes[2];
     data[data.length - 1] = FlagByte;
-
     return data;
   }
 }

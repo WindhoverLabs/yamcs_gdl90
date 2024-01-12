@@ -289,7 +289,7 @@ public class GDL90Link extends AbstractTmDataLink
         new com.windhoverlabs.yamcs.gdl90.OwnshipReport();
     GDL90Datagram.setData(beat.toBytes());
     System.out.println(
-        "Sending Heartbeat:"
+        "Sending OwnshipReport:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
   }
