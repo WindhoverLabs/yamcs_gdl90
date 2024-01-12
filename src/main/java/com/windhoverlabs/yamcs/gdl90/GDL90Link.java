@@ -285,9 +285,34 @@ public class GDL90Link extends AbstractTmDataLink
 
   private void sendOwnshipReport() throws IOException {
 
-    com.windhoverlabs.yamcs.gdl90.OwnshipReport beat =
+    com.windhoverlabs.yamcs.gdl90.OwnshipReport ownership =
         new com.windhoverlabs.yamcs.gdl90.OwnshipReport();
-    GDL90Datagram.setData(beat.toBytes());
+
+    /**
+     * Report Data: No Traffic Alert ICAO ADS-B Address (octal): 52642511 8 Latitude: 44.90708
+     * (North) Longitude: -122.99488 (West) Altitude: 5,000 feet (pressure altitude) Airborne with
+     * True Track HPL = 20 meters, HFOM = 25 meters (NIC = 10, NACp = 9) Horizontal velocity: 123
+     * knots at 45 degrees (True Track) Vertical velocity: 64 FPM climb Emergency/Priority Code:
+     * none Emitter Category: Light Tail Number: N825
+     */
+    ownership.TrafficAlertStatus = false;
+    ownership.AddressType = 0;
+    ownership.ParticipantAddress = 52642511; // base 8
+    ownership.Latitude = 44.90708;
+    ownership.Longitude = -122.99488;
+
+    ownership.Altitude = 5000;
+    ownership.TrueTrackAngle = true;
+    ownership.Airborne = true;
+
+    ownership.i = 10;
+    ownership.a = 9;
+
+    ownership.horizontalVelocity = 123; //Knots
+
+    ownership.verticalVelocity = 64; //FPM
+    GDL90Datagram.setData(ownership.toBytes());
+
     System.out.println(
         "Sending OwnshipReport:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
