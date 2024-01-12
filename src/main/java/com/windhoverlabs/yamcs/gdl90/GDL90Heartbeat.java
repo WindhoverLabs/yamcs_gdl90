@@ -4,7 +4,6 @@ import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
-import org.yamcs.tctm.ccsds.error.Crc16Calculator;
 
 public class GDL90Heartbeat {
   byte FlagByte = 0x7E;
@@ -83,81 +82,32 @@ public class GDL90Heartbeat {
     System.out.println("toBytes2");
     data[1] = MessageID;
 
-    byte[] crcTestSample = {
-      0x7e,
-      0x00,
-      (byte) 0x81,
-      0x01,
-      (byte) 0xad,
-      (byte) 0xa9,
-      (byte) 0x00,
-      (byte) 0x00,
-      (byte) 0x5d,
-      (byte) 0xd3,
-      0x7e
-    };
-    //    byte[] sampleMessage = {
-    //      0x00, (byte) 0x81, 0x41, (byte) 0xD0, (byte) 0xDB, 0x08, 0x02,
+    //    byte[] crcTestSample = {
+    //      0x7e,
+    //      0x00, (byte) 0x81, 0x41, (byte) 0xDB, (byte) 0xD0, 0x08, 0x02,
+    //       0x5d,
+    //       (byte) 0xd3,
+    //      0x7e
     //    };
 
-    int[] sampleMessage = {0x00, 0x01, 0x01, 0xD9, 0x42, 0x00, 0x00};
+    int[] testMessage = {0x00, 0x81, 0x41, 0xDB, 0xD0, 0x08, 0x02};
 
-    //    byte[] sampleMessage = {
-    //      0x00, (byte) 0x01, 0x01, (byte) 0xD0, (byte) 0x3E, 0x00, 0x00,
-    //    };
-
-    //    7e 00 01 01 d0 3e 00 00 3e 83 7e
-
-    //    byte[] sampleMessage = {
-    //    	       (byte) 0x81, 0x41, (byte) 0xD0, (byte) 0xDB, 0x02, 0x08,
-    //    	    };
     System.out.println("toBytes3");
-    //    int heartBeatCrc = com.windhoverlabs.yamcs.gdl90.CrcTable.crc16_ccitt(crcTestSample, 1,
-    // 7);
     int heartBeatCrc = 0;
     System.out.println("toBytes4");
 
-    Crc16Calculator cc = new Crc16Calculator(0x1021);
-    //    heartBeatCrc =  cc.compute(sampleMessage, 0, sampleMessage.length, 0);
-
-    heartBeatCrc = crcCompute(sampleMessage);
-
-    //    System.out.println("Java CRC:" + crcCompute(sampleMessage));
+    heartBeatCrc = crcCompute(testMessage);
 
     System.out.println("heartBeatCrc:" + (String.format("0x%08X", heartBeatCrc)));
-    //    The offset for the checksum will have to be calculated based on payload size which
-    // can vary if FlagByte needs to be escaped
-
-    //    crcTestSample = ByteArrayUtils.encodeUnsignedShort(heartBeatCrc, crcTestSample, 8);
 
     System.out.println("toBytes5");
 
     data[0] = FlagByte;
     data[10] = FlagByte;
 
-    //    byte[] crcTestSample = {
-    //    	    0x7e,
-    //    	    0x00,
-    //    	    (byte) 0x81,
-    //    	    0x01,
-    //    	    (byte) 0xad,
-    //    	    (byte) 0xa9,
-    //    	    (byte) 0x00,
-    //    	    (byte) 0x00,
-    //    	    (byte) 0x5d,
-    //    	    (byte) 0xd3,
-    //    	    0x7e
-    //    	  };
-
-    //    byte[] crcTest = ByteArrayUtils.encodeUnsignedShort(heartBeatCrc, data, 8);
-
-    //    return testSample;
-
     System.out.println("toBytes6");
 
-    executeSimpleJS();
-
-    return crcTestSample;
+    return data;
   }
 
   // ----------------- 2 bytes(short) encoding/decoding
@@ -266,21 +216,8 @@ public class GDL90Heartbeat {
     int mask16bit = 0xffff;
 
     int crc = 0;
-    int i = 0;
     for (int c : buffer) {
       int m = (crc << 8) & mask16bit;
-      //      System.out.println("c:" + (c & 0xFF));
-      //      System.out.println("m:" + m);
-      //      System.out.println("crc >> 8:" + ((byte) (crc >> 8)));
-      //      System.out.println("crc:" + crc);
-      ////      if ((crc >> 8) == -18)
-      ////      {
-      ////
-      ////      }
-      ////      else {
-      ////    	  crc = crcTable[crc >> 8] ^ m ^ c;
-      ////      }
-
       crc = crcTable[crc >> 8] ^ m ^ c;
     }
     return crc;
