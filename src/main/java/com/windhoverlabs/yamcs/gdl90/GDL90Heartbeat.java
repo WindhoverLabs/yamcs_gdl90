@@ -1,5 +1,6 @@
 package com.windhoverlabs.yamcs.gdl90;
 
+import java.nio.ByteBuffer;
 
 public class GDL90Heartbeat {
   byte FlagByte = 0x7E;
@@ -71,22 +72,34 @@ public class GDL90Heartbeat {
 
   public byte[] toBytes() {
     byte[] data = new byte[11];
-    byte GPSPosValidByte = 1;
+    byte GPSPosValidByte = 0;
     if (GPSPosValid) {
       GPSPosValidByte = (byte) (GPSPosValidByte | (byte) (1 << 7));
     }
     System.out.println("toBytes2");
     data[1] = MessageID;
 
-    byte[] testMessage = {0x00, (byte) 0x81, 0x41, (byte) 0xDB, (byte) 0xD0, 0x08, 0x02};
+    //    0x00 0x81 0x41 0xDB 0xD0 0x08 0x02
 
-    System.out.println("toBytes3");
+    data[2] = (byte) 0x81;
+    data[3] = (byte) 0x41;
+    data[4] = (byte) 0xDB;
+    data[5] = (byte) 0xD0;
+    data[6] = (byte) 0x08;
+    data[7] = (byte) 0x02;
+
     int heartBeatCrc = 0;
-    System.out.println("toBytes4");
 
-    heartBeatCrc = crcCompute(testMessage);
+    heartBeatCrc = crcCompute(data, 1, 7);
+
+    System.out.println("heartBeatCrc:" + heartBeatCrc);
 
     data[0] = FlagByte;
+
+    byte[] bytes = ByteBuffer.allocate(4).putInt(heartBeatCrc).array();
+
+    data[8] = bytes[3];
+    data[9] = bytes[2];
     data[10] = FlagByte;
 
     System.out.println("toBytes6");
@@ -116,15 +129,22 @@ public class GDL90Heartbeat {
     return crc;
   }
 
-  public int crcCompute(byte[] buffer) {
+  public int crcCompute(byte[] buffer, int offset, int length) {
     int mask16bit = 0xffff;
 
     int crc = 0;
-    for (byte c : buffer) {
+    for (int i = offset; i < length + offset; i++) {
       int m = (crc << 8) & mask16bit;
-      int data = c & 0xff;
+      //      Ensure we are using the unsigned byte (the algorithm makes an assumption that the byte
+      // we are using is unsigned)
+      int data = Byte.toUnsignedInt(buffer[i]);
+
+      System.out.println("data:" + data);
+
       crc = crcTable[crc >> 8] ^ m ^ data;
     }
+
+    System.out.println(String.format("0x%08X", crc));
     return crc;
   }
 }

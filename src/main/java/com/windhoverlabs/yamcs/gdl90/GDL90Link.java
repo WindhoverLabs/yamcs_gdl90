@@ -274,7 +274,7 @@ public class GDL90Link extends AbstractTmDataLink
 
   private void sendHeartbeat() throws IOException {
     GDL90Heartbeat beat = new GDL90Heartbeat();
-    //    beat.GPSPosValid = true;
+    beat.GPSPosValid = false;
     GDL90Datagram.setData(beat.toBytes());
     System.out.println(
         "Sending Heartbeat:"
