@@ -308,10 +308,23 @@ public class GDL90Link extends AbstractTmDataLink
     ownership.i = 10;
     ownership.a = 9;
 
-    ownership.horizontalVelocity = 123; //Knots
+    ownership.horizontalVelocity = 123; // Knots
 
-    ownership.verticalVelocity = 64; //FPM
-    GDL90Datagram.setData(ownership.toBytes());
+    ownership.verticalVelocity = 500; // FPM
+    
+    ownership.trackHeading = 45; // Degrees
+    
+    ownership.ee = 1; // Should be an enum
+    
+    ownership.callSign = "N825V";
+    try {
+		GDL90Datagram.setData(ownership.toBytes());
+	} catch (Exception e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
+    
+    ownership.px = 0;
 
     System.out.println(
         "Sending OwnshipReport:"

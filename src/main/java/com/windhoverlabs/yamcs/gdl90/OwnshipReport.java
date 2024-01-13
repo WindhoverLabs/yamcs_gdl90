@@ -2,8 +2,6 @@ package com.windhoverlabs.yamcs.gdl90;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.BitSet;
 
 /**
  * As per the spec:
@@ -54,8 +52,18 @@ public class OwnshipReport {
   public int horizontalVelocity;
 
   public int verticalVelocity;
+  
+  public  int trackHeading;
+  
+//  Emitter Category. Should be an enum.
+  public byte ee;
+  
+  public String callSign ;
+  
+//  EMERGENCY /PRIORITY CODE
+  public byte px;
 
-  public byte[] toBytes() {
+  public byte[] toBytes() throws Exception {
 
     // ByteArrayOutputStream messageStream = minimallyFunctionalMessage();
     ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
@@ -83,35 +91,23 @@ public class OwnshipReport {
     messageStream.write(ParticipantAddressBytes[2]);
     messageStream.write(ParticipantAddressBytes[3]);
 
-
     // Lat, Long needs to be revisited...
 
     double packed = packLatLong(Latitude);
 
-
-        // llllll Big Endian
-        byte[] LatitudeBytes =
-        ByteBuffer.allocate(8)
-            .putDouble(packed)
-            .array();
+    // llllll Big Endian
+    byte[] LatitudeBytes = ByteBuffer.allocate(8).putDouble(packed).array();
     messageStream.write(LatitudeBytes[1]);
     messageStream.write(LatitudeBytes[2]);
     messageStream.write(LatitudeBytes[3]);
 
-
-     packed = packLatLong(Longitude);
-
+    packed = packLatLong(Longitude);
 
     // llllll Big Endian
-    byte[] LongitudeBytes =
-    ByteBuffer.allocate(8)
-        .putDouble(packed)
-        .array();
+    byte[] LongitudeBytes = ByteBuffer.allocate(8).putDouble(packed).array();
     messageStream.write(LongitudeBytes[1]);
     messageStream.write(LongitudeBytes[2]);
     messageStream.write(LongitudeBytes[3]);
-
-
 
     // BitSet miscBitSet = new BitSet(8);
 
@@ -119,34 +115,26 @@ public class OwnshipReport {
     // packAltitude needs to be revisited...
     float packedAltitude = packAltitude(Altitude);
 
-        // ddd Big Endian
-    byte[] AltitudeBytes =
-    ByteBuffer.allocate(4)
-        .putFloat(packedAltitude)
-        .array();
+    // ddd Big Endian
+    byte[] AltitudeBytes = ByteBuffer.allocate(4).putFloat(packedAltitude).array();
     messageStream.write(AltitudeBytes[1]);
 
     byte dmByte = (byte) AltitudeBytes[2];
 
     System.out.println("toBytes2");
 
-    if(TrueTrackAngle)
-    {
+    if (TrueTrackAngle) {
       dmByte = (byte) (dmByte | (1 << 0));
     }
-    if(Airborne)
-    {
+    if (Airborne) {
       dmByte = (byte) (dmByte | (1 << 3));
     }
 
     System.out.println("toBytes3");
 
-    messageStream.write(dmByte);    
+    messageStream.write(dmByte);
 
     byte iaByte = 0;
-
-    // iaByte |=  i<<4;
-    // iaByte |=  a<<4 ;
 
     iaByte = (byte) setNibble(iaByte, a, 0);
     iaByte = (byte) setNibble(iaByte, i, 1);
@@ -154,32 +142,47 @@ public class OwnshipReport {
     messageStream.write(iaByte);
 
     System.out.println("toBytes4");
+    //        hhhvvvSet.
 
+    int c = horizontalVelocity << 20 | (verticalVelocity / 64);
+    //        c = c | verticalVelocity;
 
     // hhh Big Endian
-    byte[] HorizontalBytes =
-    ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
-        .putInt(horizontalVelocity & 0xffffffff)
-        .array();
-    messageStream.write(HorizontalBytes[2]);
+    byte[] cBytes = ByteBuffer.allocate(4).putInt(c).array();
 
+    //        TODO:Needs to be revisited
+
+    messageStream.write(cBytes[0]);
+    messageStream.write(cBytes[1]);
+    messageStream.write(cBytes[3]);
     
+    int packedHeading = packHeading(trackHeading);
+
+    // tt Big Endian
+    byte[] HeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
+    messageStream.write(HeadingBytes[3]);
     
-    byte hvByte = 0;
+    messageStream.write(ee);
+   byte[] callSignBytes = this.callSign.getBytes();
+   if(callSignBytes.length > 8) 
+   {
+	   throw new Exception("callSign is greater than 8 characters");
+   }
+   
+   for(byte b: callSignBytes) 
+   {
+	   messageStream.write(b);
+   }
+   
+   int callSignBytesRemainder = 8 - callSignBytes.length;
+  
+   for(int i = 0;i<callSignBytesRemainder;i++) 
+   {
+	   messageStream.write(0x20);
+   }
+   
+   messageStream.write(px);
 
-    hvByte = (byte) setNibble(hvByte, HorizontalBytes[2] & 0xf0, 0);
-
-        // hhh Big Endian
-        byte[] VerticalBytes =
-        ByteBuffer.allocate(4)
-            .putInt(verticalVelocity)
-            .array();
-        messageStream.write(VerticalBytes[3]);
-
-    hvByte = (byte) setNibble(hvByte, VerticalBytes[2] & 0x0f, 1);
-
-    messageStream.write(hvByte);
-    
     byte[] crcData = messageStream.toByteArray();
     int crc = CrcTable.crcCompute(crcData, 1, crcData.length - 1);
 
@@ -262,25 +265,29 @@ public class OwnshipReport {
   }
 
   public static int setNibble(int num, int nibble, int which) {
-    int shiftNibble= nibble << (4*which) ;
-    int shiftMask= 0x0000000F << (4*which) ;
-    return ( num & ~shiftMask ) | shiftNibble ;
-}
+    int shiftNibble = nibble << (4 * which);
+    int shiftMask = 0x0000000F << (4 * which);
+    return (num & ~shiftMask) | shiftNibble;
+  }
 
-  public long packLatLong(double LatLon)
-  {
-    long packed =  (long) (LatLon * (0x800000 / 180.0));
+  public long packLatLong(double LatLon) {
+    long packed = (long) (LatLon * (0x800000 / 180.0));
 
     if (packed < 0) {
-      return (((long) 0x1000000 + (long)packed) & (long)0xffffff) + 1; // 2s complement
+      return (((long) 0x1000000 + (long) packed) & (long) 0xffffff) + 1; // 2s complement
     }
-  
+
     return packed;
   }
 
   public float packAltitude(float altFt) {
     return Math.round((1000 + altFt) / 25);
   }
+  
+  public int packHeading(float heading) {
+		return Math.round((heading / 360) * 256);
+	}
+
 
   private byte[] exampleMesssage() {
     // TODO: Use this message for unit tests
@@ -293,7 +300,7 @@ public class OwnshipReport {
     data[3] = (byte) 0xAB;
     data[4] = 0x45;
     data[5] = 0x49;
-    data[6] = 0x1F;
+    data[6] = 0x1F;																												
     data[7] = (byte) 0xEF;
     data[8] = 0x15;
     data[9] = (byte) 0xA8;
