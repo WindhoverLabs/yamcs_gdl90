@@ -144,7 +144,10 @@ public class GDL90Link extends AbstractTmDataLink
         GDL90Socket = new DatagramSocket();
         GDL90Datagram =
             new DatagramPacket(
-                new byte[MAX_LENGTH], MAX_LENGTH, InetAddress.getByName(config.getString("gdl90_host")), config.getInt("gdl90_port"));
+                new byte[MAX_LENGTH],
+                MAX_LENGTH,
+                InetAddress.getByName(config.getString("gdl90_host")),
+                config.getInt("gdl90_port"));
       } catch (UnknownHostException e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -161,6 +164,7 @@ public class GDL90Link extends AbstractTmDataLink
               System.out.println("Triggered");
               sendHeartbeat();
               sendOwnshipReport();
+              OwnshipGeoAltitude();
               //              sendOwnshipReport();
 
             } catch (IOException e) {
@@ -311,23 +315,43 @@ public class GDL90Link extends AbstractTmDataLink
     ownership.horizontalVelocity = 123; // Knots
 
     ownership.verticalVelocity = 64; // FPM
-    
+
     ownership.trackHeading = 45; // Degrees
-    
+
     ownership.ee = 1; // Should be an enum
-    
+
     ownership.callSign = "N825V";
     try {
-		GDL90Datagram.setData(ownership.toBytes());
-	} catch (Exception e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	}
-    
+      GDL90Datagram.setData(ownership.toBytes());
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+
     ownership.px = 0;
 
     System.out.println(
         "Sending OwnshipReport:"
+            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
+    GDL90Socket.send(GDL90Datagram);
+  }
+
+  private void OwnshipGeoAltitude() throws IOException {
+
+    com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude geoAlt =
+        new com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude();
+
+    geoAlt.ownshipAltitude = -1000;
+    geoAlt.verticalFigureOfMerit = 10;
+    try {
+      GDL90Datagram.setData(geoAlt.toBytes());
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+
+    System.out.println(
+        "Sending OwnshipGeoAltitude:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
   }

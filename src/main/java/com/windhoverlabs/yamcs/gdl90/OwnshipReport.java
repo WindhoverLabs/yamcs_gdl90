@@ -3,8 +3,6 @@ package com.windhoverlabs.yamcs.gdl90;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
-
-
 /**
  * As per the spec:
  * https://www.faa.gov/sites/faa.gov/files/air_traffic/technology/adsb/archival/GDL90_Public_ICD_RevA.PDF
@@ -54,15 +52,15 @@ public class OwnshipReport {
   public int horizontalVelocity;
 
   public int verticalVelocity;
-  
-  public  int trackHeading;
-  
-//  Emitter Category. Should be an enum.
+
+  public int trackHeading;
+
+  //  Emitter Category. Should be an enum.
   public byte ee;
-  
-  public String callSign ;
-  
-//  EMERGENCY /PRIORITY CODE
+
+  public String callSign;
+
+  //  EMERGENCY /PRIORITY CODE
   public byte px;
 
   public byte[] toBytes() throws Exception {
@@ -96,21 +94,21 @@ public class OwnshipReport {
     // Lat, Long needs to be revisited...
 
     int packed = packLatLong(Latitude);
-    
+
     String tempLat = Integer.toHexString(packed);
-    
+
     System.out.println("tempLat:" + tempLat);
 
     // llllll Big Endian
     byte[] LatitudeBytes = ByteBuffer.allocate(4).putInt(packed).array();
-//    messageStream.write(LatitudeBytes[0]);
+    //    messageStream.write(LatitudeBytes[0]);
     messageStream.write(LatitudeBytes[1]);
     messageStream.write(LatitudeBytes[2]);
     messageStream.write(LatitudeBytes[3]);
-//    messageStream.write(LatitudeBytes[4]);
-//    messageStream.write(LatitudeBytes[5]);
-//    messageStream.write(LatitudeBytes[6]);
-//    messageStream.write(LatitudeBytes[7]);
+    //    messageStream.write(LatitudeBytes[4]);
+    //    messageStream.write(LatitudeBytes[5]);
+    //    messageStream.write(LatitudeBytes[6]);
+    //    messageStream.write(LatitudeBytes[7]);
 
     packed = packLatLong(Longitude);
 
@@ -125,37 +123,34 @@ public class OwnshipReport {
     System.out.println("toBytes1");
     // packAltitude needs to be revisited...
     int packedAltitude = packAltitude(Altitude);
-    
-    
+
     // ddd Big Endian
     byte[] AltitudeBytes = ByteBuffer.allocate(4).putInt(packedAltitude).array();
-//    
-////    
-////    messageStream.write(AltitudeBytes[0]);
-////    messageStream.write(AltitudeBytes[1]);
-//    
-//    
-//    messageStream.write(AltitudeBytes[3]);
-    
+    //
+    ////
+    ////    messageStream.write(AltitudeBytes[0]);
+    ////    messageStream.write(AltitudeBytes[1]);
+    //
+    //
+    //    messageStream.write(AltitudeBytes[3]);
 
     byte dmByte = (byte) AltitudeBytes[2];
 
     System.out.println("toBytes2");
 
     if (TrueTrackAngle) {
-        System.out.println("toBytes3");
+      System.out.println("toBytes3");
       dmByte = (byte) (dmByte | (1 << 0));
     }
     if (Airborne) {
-        System.out.println("toBytes4");
+      System.out.println("toBytes4");
       dmByte = (byte) (dmByte | (1 << 3));
     }
 
     System.out.println("toBytes5");
 
-//    messageStream.write(dmByte);
-    
-    
+    //    messageStream.write(dmByte);
+
     int dddm = packedAltitude << 20 | (dmByte);
     //        c = c | verticalVelocity;
 
@@ -165,12 +160,11 @@ public class OwnshipReport {
     //        TODO:Needs to be revisited
 
     messageStream.write(dddmBytes[0]);
-//    messageStream.write(dddmBytes[1]);
-//    messageStream.write(dddmBytes[2]);
+    //    messageStream.write(dddmBytes[1]);
+    //    messageStream.write(dddmBytes[2]);
     messageStream.write(dddmBytes[3]);
-    
-    
-//    messageStream.write(AltitudeBytes[3]);
+
+    //    messageStream.write(AltitudeBytes[3]);
 
     byte iaByte = 0;
 
@@ -193,33 +187,30 @@ public class OwnshipReport {
     messageStream.write(cBytes[0]);
     messageStream.write(cBytes[1]);
     messageStream.write(cBytes[3]);
-    
+
     int packedHeading = packHeading(trackHeading);
 
     // tt Big Endian
     byte[] HeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
     messageStream.write(HeadingBytes[3]);
-    
+
     messageStream.write(ee);
-   byte[] callSignBytes = this.callSign.getBytes();
-   if(callSignBytes.length > 8) 
-   {
-	   throw new Exception("callSign is greater than 8 characters");
-   }
-   
-   for(byte b: callSignBytes) 
-   {
-	   messageStream.write(b);
-   }
-   
-   int callSignBytesRemainder = 8 - callSignBytes.length;
-  
-   for(int i = 0;i<callSignBytesRemainder;i++) 
-   {
-	   messageStream.write(0x20);
-   }
-   
-   messageStream.write(px);
+    byte[] callSignBytes = this.callSign.getBytes();
+    if (callSignBytes.length > 8) {
+      throw new Exception("callSign is greater than 8 characters");
+    }
+
+    for (byte b : callSignBytes) {
+      messageStream.write(b);
+    }
+
+    int callSignBytesRemainder = 8 - callSignBytes.length;
+
+    for (int i = 0; i < callSignBytesRemainder; i++) {
+      messageStream.write(0x20);
+    }
+
+    messageStream.write(px);
 
     byte[] crcData = messageStream.toByteArray();
     int crc = CrcTable.crcCompute(crcData, 1, crcData.length - 1);
@@ -309,23 +300,22 @@ public class OwnshipReport {
   }
 
   public int packLatLong(double LatLon) {
-	  
-	  Double doubleVal = LatLon;
-	  
-	  int valLon = (int) (doubleVal/(180.0 / 8388608.0));
+
+    Double doubleVal = LatLon;
+
+    int valLon = (int) (doubleVal / (180.0 / 8388608.0));
 
     return valLon;
   }
 
   public int packAltitude(int altFt) {
-//	  Double doubleVal = altFt;
+    //	  Double doubleVal = altFt;
     return (int) ((1000 + altFt) / 25);
   }
-  
-  public int packHeading(float heading) {
-		return Math.round((heading / 360) * 256);
-	}
 
+  public int packHeading(float heading) {
+    return Math.round((heading / 360) * 256);
+  }
 
   private byte[] exampleMesssage() {
     // TODO: Use this message for unit tests
@@ -338,7 +328,7 @@ public class OwnshipReport {
     data[3] = (byte) 0xAB;
     data[4] = 0x45;
     data[5] = 0x49;
-    data[6] = 0x1F;																												
+    data[6] = 0x1F;
     data[7] = (byte) 0xEF;
     data[8] = 0x15;
     data[9] = (byte) 0xA8;
