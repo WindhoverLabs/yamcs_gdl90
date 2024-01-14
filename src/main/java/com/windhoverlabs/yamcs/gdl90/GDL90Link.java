@@ -144,7 +144,7 @@ public class GDL90Link extends AbstractTmDataLink
         GDL90Socket = new DatagramSocket();
         GDL90Datagram =
             new DatagramPacket(
-                new byte[MAX_LENGTH], MAX_LENGTH, InetAddress.getByName("172.16.100.93"), 4000);
+                new byte[MAX_LENGTH], MAX_LENGTH, InetAddress.getByName(config.getString("gdl90_host")), config.getInt("gdl90_port"));
       } catch (UnknownHostException e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -310,7 +310,7 @@ public class GDL90Link extends AbstractTmDataLink
 
     ownership.horizontalVelocity = 123; // Knots
 
-    ownership.verticalVelocity = 500; // FPM
+    ownership.verticalVelocity = 64; // FPM
     
     ownership.trackHeading = 45; // Degrees
     

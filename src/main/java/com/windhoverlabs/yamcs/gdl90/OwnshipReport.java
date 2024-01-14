@@ -3,6 +3,8 @@ package com.windhoverlabs.yamcs.gdl90;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
+
+
 /**
  * As per the spec:
  * https://www.faa.gov/sites/faa.gov/files/air_traffic/technology/adsb/archival/GDL90_Public_ICD_RevA.PDF
@@ -34,7 +36,7 @@ public class OwnshipReport {
   public double Longitude;
 
   //  ddd
-  public float Altitude;
+  public int Altitude;
 
   // Miscellaneous indicators:
 
@@ -93,18 +95,27 @@ public class OwnshipReport {
 
     // Lat, Long needs to be revisited...
 
-    double packed = packLatLong(Latitude);
+    int packed = packLatLong(Latitude);
+    
+    String tempLat = Integer.toHexString(packed);
+    
+    System.out.println("tempLat:" + tempLat);
 
     // llllll Big Endian
-    byte[] LatitudeBytes = ByteBuffer.allocate(8).putDouble(packed).array();
+    byte[] LatitudeBytes = ByteBuffer.allocate(4).putInt(packed).array();
+//    messageStream.write(LatitudeBytes[0]);
     messageStream.write(LatitudeBytes[1]);
     messageStream.write(LatitudeBytes[2]);
     messageStream.write(LatitudeBytes[3]);
+//    messageStream.write(LatitudeBytes[4]);
+//    messageStream.write(LatitudeBytes[5]);
+//    messageStream.write(LatitudeBytes[6]);
+//    messageStream.write(LatitudeBytes[7]);
 
     packed = packLatLong(Longitude);
 
     // llllll Big Endian
-    byte[] LongitudeBytes = ByteBuffer.allocate(8).putDouble(packed).array();
+    byte[] LongitudeBytes = ByteBuffer.allocate(4).putInt(packed).array();
     messageStream.write(LongitudeBytes[1]);
     messageStream.write(LongitudeBytes[2]);
     messageStream.write(LongitudeBytes[3]);
@@ -113,26 +124,53 @@ public class OwnshipReport {
 
     System.out.println("toBytes1");
     // packAltitude needs to be revisited...
-    float packedAltitude = packAltitude(Altitude);
-
+    int packedAltitude = packAltitude(Altitude);
+    
+    
     // ddd Big Endian
-    byte[] AltitudeBytes = ByteBuffer.allocate(4).putFloat(packedAltitude).array();
-    messageStream.write(AltitudeBytes[1]);
+    byte[] AltitudeBytes = ByteBuffer.allocate(4).putInt(packedAltitude).array();
+//    
+////    
+////    messageStream.write(AltitudeBytes[0]);
+////    messageStream.write(AltitudeBytes[1]);
+//    
+//    
+//    messageStream.write(AltitudeBytes[3]);
+    
 
     byte dmByte = (byte) AltitudeBytes[2];
 
     System.out.println("toBytes2");
 
     if (TrueTrackAngle) {
+        System.out.println("toBytes3");
       dmByte = (byte) (dmByte | (1 << 0));
     }
     if (Airborne) {
+        System.out.println("toBytes4");
       dmByte = (byte) (dmByte | (1 << 3));
     }
 
-    System.out.println("toBytes3");
+    System.out.println("toBytes5");
 
-    messageStream.write(dmByte);
+//    messageStream.write(dmByte);
+    
+    
+    int dddm = packedAltitude << 20 | (dmByte);
+    //        c = c | verticalVelocity;
+
+    // hhh Big Endian
+    byte[] dddmBytes = ByteBuffer.allocate(4).putInt(dddm).array();
+
+    //        TODO:Needs to be revisited
+
+    messageStream.write(dddmBytes[0]);
+//    messageStream.write(dddmBytes[1]);
+//    messageStream.write(dddmBytes[2]);
+    messageStream.write(dddmBytes[3]);
+    
+    
+//    messageStream.write(AltitudeBytes[3]);
 
     byte iaByte = 0;
 
@@ -270,18 +308,18 @@ public class OwnshipReport {
     return (num & ~shiftMask) | shiftNibble;
   }
 
-  public long packLatLong(double LatLon) {
-    long packed = (long) (LatLon * (0x800000 / 180.0));
+  public int packLatLong(double LatLon) {
+	  
+	  Double doubleVal = LatLon;
+	  
+	  int valLon = (int) (doubleVal/(180.0 / 8388608.0));
 
-    if (packed < 0) {
-      return (((long) 0x1000000 + (long) packed) & (long) 0xffffff) + 1; // 2s complement
-    }
-
-    return packed;
+    return valLon;
   }
 
-  public float packAltitude(float altFt) {
-    return Math.round((1000 + altFt) / 25);
+  public int packAltitude(int altFt) {
+//	  Double doubleVal = altFt;
+    return (int) ((1000 + altFt) / 25);
   }
   
   public int packHeading(float heading) {
