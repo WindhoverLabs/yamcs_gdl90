@@ -46,6 +46,10 @@ public class GDL90Heartbeat {
     if (GPSPosValid) {
       GPSPosValidByte = (byte) (GPSPosValidByte | (byte) (1 << 7));
     }
+
+    if (UATInitialized) {
+      GPSPosValidByte = (byte) (GPSPosValidByte | (byte) (1 << 0));
+    }
     System.out.println("toBytes2");
     data[1] = MessageID;
     data[2] = GPSPosValidByte;

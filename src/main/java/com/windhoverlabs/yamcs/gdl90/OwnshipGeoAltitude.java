@@ -19,8 +19,6 @@ public class OwnshipGeoAltitude {
 
     ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
 
-    messageStream.write(FlagByte);
-
     messageStream.write(MessageID);
 
     ownshipAltitude /= 5;
@@ -55,12 +53,38 @@ public class OwnshipGeoAltitude {
     messageStream.write(crcBytes[3]);
     messageStream.write(crcBytes[2]);
 
-    messageStream.write(FlagByte);
+    ByteArrayOutputStream messageStreamOut = escapeBytes(messageStream.toByteArray());
 
-    byte[] dataOut = messageStream.toByteArray();
+    ByteBuffer bbOut = ByteBuffer.allocate(messageStreamOut.toByteArray().length + 2).put(FlagByte);
+
+    bbOut.put(messageStreamOut.toByteArray());
+
+    //    messageStreamOut.write(new byte[] {FlagByte}, 0, 1);
+
+    bbOut.put(FlagByte);
+
+    byte[] dataOut = bbOut.array();
 
     messageStream.toByteArray();
 
     return dataOut;
+  }
+
+  public ByteArrayOutputStream escapeBytes(byte[] bb) {
+    ByteArrayOutputStream newBB = new ByteArrayOutputStream();
+    for (int i = 0; i < bb.length; i++) {
+      if (bb[i] == 0x7d
+          || bb[i] == 0x7e) // XOR with 0x20 when found flag or control-escape character
+      {
+        newBB.write((byte) 0x7d);
+        int temp = bb[i];
+        int xored = temp ^ 0x20;
+        newBB.write((byte) xored);
+      } else {
+        newBB.write(bb[i]); // Copy unchanged bytes
+      }
+    }
+
+    return newBB;
   }
 }

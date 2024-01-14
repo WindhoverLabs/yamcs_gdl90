@@ -280,6 +280,7 @@ public class GDL90Link extends AbstractTmDataLink
   private void sendHeartbeat() throws IOException {
     GDL90Heartbeat beat = new GDL90Heartbeat();
     beat.GPSPosValid = true;
+    beat.UATInitialized = true;
     GDL90Datagram.setData(beat.toBytes());
     System.out.println(
         "Sending Heartbeat:"
@@ -312,7 +313,7 @@ public class GDL90Link extends AbstractTmDataLink
     ownership.i = 10;
     ownership.a = 9;
 
-    ownership.horizontalVelocity = 123; // Knots
+    ownership.horizontalVelocity = 630; // Knots
 
     ownership.verticalVelocity = 64; // FPM
 
@@ -341,8 +342,9 @@ public class GDL90Link extends AbstractTmDataLink
     com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude geoAlt =
         new com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude();
 
-    geoAlt.ownshipAltitude = -1000;
-    geoAlt.verticalFigureOfMerit = 10;
+    geoAlt.ownshipAltitude = 3000;
+    geoAlt.verticalFigureOfMerit = 50;
+    geoAlt.verticalWarningIndicator = false;
     try {
       GDL90Datagram.setData(geoAlt.toBytes());
     } catch (Exception e) {
