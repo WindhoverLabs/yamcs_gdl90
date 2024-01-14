@@ -16,7 +16,7 @@ public class GDL90Heartbeat {
   public boolean GPSPosValid, MaintRquired, INDENT, AddrType, GPSBattLow, RATCS, UATInitialized;
 
   // Third Byte
-  public boolean TimeStampStatus, CSARequested, CSANotAvailable, UTCOK;
+  public boolean TimeStampStatus, CSARequested, CSANotAvailable, UTC_OK;
 
   // Fourth and Fifth bytes
   short TimeStamp;
@@ -42,17 +42,27 @@ public class GDL90Heartbeat {
 
   public byte[] toBytes() {
     byte[] data = new byte[11];
-    byte GPSPosValidByte = 0;
+    byte secondByte = 0;
     if (GPSPosValid) {
-      GPSPosValidByte = (byte) (GPSPosValidByte | (byte) (1 << 7));
+      secondByte = (byte) (secondByte | (byte) (1 << 7));
     }
 
     if (UATInitialized) {
-      GPSPosValidByte = (byte) (GPSPosValidByte | (byte) (1 << 0));
+      secondByte = (byte) (secondByte | (byte) (1 << 0));
     }
     System.out.println("toBytes2");
     data[1] = MessageID;
-    data[2] = GPSPosValidByte;
+    data[2] = secondByte;
+
+    byte thirdByte = 0;
+
+    //    Not documented on ForeFlight docs, but this HAS to be set in order for it to display GPS
+    // altitude correctly
+    if (UTC_OK) {
+      thirdByte = (byte) (thirdByte | (byte) (1 << 0));
+    }
+
+    data[3] = thirdByte;
 
     //    TODO:Use for unit tests
     //    0x00 0x81 0x41 0xDB 0xD0 0x08 0x02

@@ -281,6 +281,7 @@ public class GDL90Link extends AbstractTmDataLink
     GDL90Heartbeat beat = new GDL90Heartbeat();
     beat.GPSPosValid = true;
     beat.UATInitialized = true;
+    beat.UTC_OK = true;
     GDL90Datagram.setData(beat.toBytes());
     System.out.println(
         "Sending Heartbeat:"
