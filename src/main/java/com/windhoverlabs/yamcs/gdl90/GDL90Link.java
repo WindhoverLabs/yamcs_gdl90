@@ -196,6 +196,7 @@ public class GDL90Link extends AbstractTmDataLink
               sendHeartbeat();
               sendOwnshipReport();
               OwnshipGeoAltitude();
+              sendForeFlightID();
               //              sendOwnshipReport();
 
             } catch (IOException e) {
@@ -206,6 +207,21 @@ public class GDL90Link extends AbstractTmDataLink
         },
         100,
         1000,
+        TimeUnit.MILLISECONDS);
+
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (isRunningAndEnabled()) {
+            try {
+              AHRSMessage();
+            } catch (IOException e) {
+              // TODO Auto-generated catch block
+              e.printStackTrace();
+            }
+          }
+        },
+        100,
+        200,
         TimeUnit.MILLISECONDS);
 
     yamcsHost = this.getConfig().getString("yamcsHost", "http://localhost");
@@ -341,6 +357,24 @@ public class GDL90Link extends AbstractTmDataLink
     GDL90Socket.send(GDL90Datagram);
   }
 
+  private void sendForeFlightID() throws IOException {
+    ForeFlightIDMessage id = new ForeFlightIDMessage();
+
+    id.DeviceSerialNum = 12;
+    id.DeviceName = "Airliner";
+    id.DeviceLongName = "Airliner";
+    try {
+      GDL90Datagram.setData(id.toBytes());
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    System.out.println(
+        "Sending ForeFlightIDMessage:"
+            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
+    GDL90Socket.send(GDL90Datagram);
+  }
+
   private void sendOwnshipReport() throws IOException {
 
     com.windhoverlabs.yamcs.gdl90.OwnshipReport ownship =
@@ -387,6 +421,24 @@ public class GDL90Link extends AbstractTmDataLink
 
     System.out.println(
         "Sending OwnshipReport:"
+            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
+    GDL90Socket.send(GDL90Datagram);
+  }
+
+  private void AHRSMessage() throws IOException {
+
+    AHRS ahrs = new AHRS();
+
+    //    ahrs.ro = 3000;
+    try {
+      GDL90Datagram.setData(ahrs.toBytes());
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+
+    System.out.println(
+        "Sending AHRS:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
   }
