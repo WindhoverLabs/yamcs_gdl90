@@ -1,11 +1,12 @@
 package com.windhoverlabs.yamcs.gdl90;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
 public class GDL90Heartbeat {
   byte FlagByte = 0x7E;
 
-  //  According to https://www.foreflight.com/connect/spec/ Everything is ignore except for
+  //  According to https://www.foreflight.com/connect/spec/ Everything is ignored except for
   // GPSPosValid
   // Payload
 
@@ -38,7 +39,8 @@ public class GDL90Heartbeat {
   };
 
   public byte[] toBytes() {
-    byte[] data = new byte[11];
+
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
     byte secondByte = 0;
     if (GPSPosValid) {
       secondByte = (byte) (secondByte | (byte) (1 << 7));
@@ -47,8 +49,6 @@ public class GDL90Heartbeat {
     if (UATInitialized) {
       secondByte = (byte) (secondByte | (byte) (1 << 0));
     }
-    data[1] = MessageID;
-    data[2] = secondByte;
 
     byte thirdByte = 0;
 
@@ -57,8 +57,6 @@ public class GDL90Heartbeat {
     if (UTC_OK) {
       thirdByte = (byte) (thirdByte | (byte) (1 << 0));
     }
-
-    data[3] = thirdByte;
 
     //    TODO:Use for unit tests
     //    0x00 0x81 0x41 0xDB 0xD0 0x08 0x02
@@ -70,18 +68,40 @@ public class GDL90Heartbeat {
     //    data[6] = (byte) 0x08;
     //    data[7] = (byte) 0x02;
 
-    int heartBeatCrc = 0;
+    messageStream.write(MessageID);
+    messageStream.write(secondByte);
+    messageStream.write(thirdByte);
 
-    heartBeatCrc = CrcTable.crcCompute(data, 1, 7);
+    //    TODO:At the moment ForeFlight does not look at these bytes.
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
+    messageStream.write(0);
 
-    data[0] = FlagByte;
+    byte[] crcData = messageStream.toByteArray();
+    int crc = CrcTable.crcCompute(crcData, 0, crcData.length);
+    //
+    // Go through message data and escape characters as per the spec
+    // ....
+    //
 
-    byte[] bytes = ByteBuffer.allocate(4).putInt(heartBeatCrc).array();
+    byte[] crcBytes = ByteBuffer.allocate(4).putInt(crc).array();
+    messageStream.write(crcBytes[3]);
+    messageStream.write(crcBytes[2]);
 
-    data[8] = bytes[3];
-    data[9] = bytes[2];
-    data[10] = FlagByte;
+    //    TODO:escapeBytes Should be extracted to either a Utility class, or move to it to some
+    // common abstraction layer
+    ByteArrayOutputStream messageStreamOut =
+        com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude.escapeBytes(messageStream.toByteArray());
 
-    return data;
+    ByteBuffer bbOut = ByteBuffer.allocate(messageStreamOut.toByteArray().length + 2).put(FlagByte);
+
+    bbOut.put(messageStreamOut.toByteArray());
+
+    bbOut.put(FlagByte);
+
+    byte[] dataOut = bbOut.array();
+
+    return dataOut;
   }
 }

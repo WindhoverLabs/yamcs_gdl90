@@ -68,7 +68,7 @@ public class OwnshipGeoAltitude {
     return dataOut;
   }
 
-  public ByteArrayOutputStream escapeBytes(byte[] bb) {
+  public static ByteArrayOutputStream escapeBytes(byte[] bb) {
     ByteArrayOutputStream newBB = new ByteArrayOutputStream();
     for (int i = 0; i < bb.length; i++) {
       if (bb[i] == 0x7d
