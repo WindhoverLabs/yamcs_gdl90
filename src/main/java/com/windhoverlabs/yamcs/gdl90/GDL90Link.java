@@ -343,7 +343,7 @@ public class GDL90Link extends AbstractTmDataLink
 
   private void sendOwnshipReport() throws IOException {
 
-    com.windhoverlabs.yamcs.gdl90.OwnshipReport ownership =
+    com.windhoverlabs.yamcs.gdl90.OwnshipReport ownship =
         new com.windhoverlabs.yamcs.gdl90.OwnshipReport();
 
     /**
@@ -353,36 +353,37 @@ public class GDL90Link extends AbstractTmDataLink
      * knots at 45 degrees (True Track) Vertical velocity: 64 FPM climb Emergency/Priority Code:
      * none Emitter Category: Light Tail Number: N825
      */
-    ownership.TrafficAlertStatus = false;
-    ownership.AddressType = 0;
-    ownership.ParticipantAddress = 52642511; // base 8
-    ownership.Latitude = 44.90708;
-    ownership.Longitude = -122.99488;
+    ownship.TrafficAlertStatus = false;
+    ownship.AddressType = 0;
+//    The ParticipantAddress seems to impact the way Altitude gets displayed on ForeFlight
+    ownship.ParticipantAddress = 0; // base 8
+    ownship.Latitude = 44.90708;
+    ownship.Longitude = -122.99488;
 
-    ownership.Altitude = 5000;
-    ownership.TrueTrackAngle = true;
-    ownership.Airborne = true;
+    ownship.Altitude = 1000;
+    ownship.TrueTrackAngle = true;
+    ownship.Airborne = true;
 
-    ownership.i = 10;
-    ownership.a = 9;
+    ownship.i = 10;
+    ownship.a = 9;
 
-    ownership.horizontalVelocity = 630; // Knots
+    ownship.horizontalVelocity = 90; // Knots
 
-    ownership.verticalVelocity = 64; // FPM
+    ownship.verticalVelocity = 64; // FPM
 
-    ownership.trackHeading = 45; // Degrees
+    ownship.trackHeading = 45; // Degrees
 
-    ownership.ee = 1; // Should be an enum
+    ownship.ee = 1; // Should be an enum
 
-    ownership.callSign = "N825V";
+    ownship.callSign = "N825V";
     try {
-      GDL90Datagram.setData(ownership.toBytes());
+      GDL90Datagram.setData(ownship.toBytes());
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
 
-    ownership.px = 0;
+    ownship.px = 0;
 
     System.out.println(
         "Sending OwnshipReport:"

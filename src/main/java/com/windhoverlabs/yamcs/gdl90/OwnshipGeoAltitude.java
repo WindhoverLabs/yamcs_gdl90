@@ -43,7 +43,7 @@ public class OwnshipGeoAltitude {
     messageStream.write(VerticalMetricsBufferBytes[3]);
 
     byte[] crcData = messageStream.toByteArray();
-    int crc = CrcTable.crcCompute(crcData, 1, crcData.length - 1);
+    int crc = CrcTable.crcCompute(crcData, 0, crcData.length);
     //
     // Go through message data and escape characters as per the spec
     // ....
