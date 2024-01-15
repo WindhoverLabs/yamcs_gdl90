@@ -33,7 +33,6 @@
 
 package com.windhoverlabs.yamcs.gdl90;
 
-import com.google.common.io.BaseEncoding;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -66,18 +65,13 @@ import org.yamcs.protobuf.SubscribeParametersRequest;
 import org.yamcs.protobuf.SubscribeParametersRequest.Action;
 import org.yamcs.protobuf.Yamcs;
 import org.yamcs.protobuf.Yamcs.NamedObjectId;
-import org.yamcs.tctm.AbstractTmDataLink;
+import org.yamcs.tctm.AbstractLink;
 import org.yamcs.tctm.PacketInputStream;
 import org.yamcs.xtce.Parameter;
 import org.yamcs.yarch.FileSystemBucket;
-import org.yamcs.yarch.Stream;
-import org.yamcs.yarch.StreamSubscriber;
-import org.yamcs.yarch.Tuple;
-import org.yamcs.yarch.protobuf.Db.Event;
 
-public class GDL90Link extends AbstractTmDataLink
+public class GDL90Link extends AbstractLink
     implements Runnable,
-        StreamSubscriber,
         SystemParametersProducer,
         ParameterSubscription.Listener,
         ConnectionListener {
@@ -134,22 +128,21 @@ public class GDL90Link extends AbstractTmDataLink
 
   private YamcsClient yclient;
 
-  //  int MAX_LENGTH = 32 * 1024;
   int MAX_LENGTH = 32;
   DatagramPacket foreFlightdatagram = new DatagramPacket(new byte[MAX_LENGTH], MAX_LENGTH);
 
   DatagramPacket GDL90Datagram;
-
-  /* Constants */
-  static final byte[] CFE_FS_FILE_CONTENT_ID_BYTE =
-      BaseEncoding.base16().lowerCase().decode("63464531".toLowerCase());
 
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
   private boolean foreFlighConnected = false;
 
   private ConcurrentHashMap<String, String> pvMap;
-
+  private int heartBeatCount = 0;
+  private int ownShipReportCount = 0;
+  private int ownshipGeoAltitudeCount = 0;
+  private int foreFlightIDCount = 0;
+  private int AHRSCount = 0;
   String GDL90Hostname;
 
   Integer appNameMax;
@@ -191,12 +184,10 @@ public class GDL90Link extends AbstractTmDataLink
         () -> {
           if (isRunningAndEnabled()) {
             try {
-              System.out.println("Triggered");
               sendHeartbeat();
               sendOwnshipReport();
-              OwnshipGeoAltitude();
+              sendOwnshipGeoAltitude();
               sendForeFlightID();
-              //              sendOwnshipReport();
 
             } catch (IOException e) {
               // TODO Auto-generated catch block
@@ -250,7 +241,13 @@ public class GDL90Link extends AbstractTmDataLink
     if (isDisabled()) {
       return String.format("DISABLED");
     } else {
-      return String.format("OK, received %d packets", packetCount.get());
+      return String.format(
+          "OK, Sent %d heartbeats, %d OwnshipReports, %d ownShipGeoAltitude(s), %d foreFlightIDs, %d AHRS(s) ",
+          heartBeatCount,
+          ownShipReportCount,
+          ownshipGeoAltitudeCount,
+          foreFlightIDCount,
+          AHRSCount);
     }
   }
 
@@ -349,11 +346,15 @@ public class GDL90Link extends AbstractTmDataLink
     beat.GPSPosValid = true;
     beat.UATInitialized = true;
     beat.UTC_OK = true;
-    GDL90Datagram.setData(beat.toBytes());
+    byte[] gdlPacket = beat.toBytes();
+    GDL90Datagram.setData(gdlPacket);
     System.out.println(
         "Sending Heartbeat:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
+
     GDL90Socket.send(GDL90Datagram);
+
+    heartBeatCount++;
   }
 
   private void sendForeFlightID() throws IOException {
@@ -372,6 +373,8 @@ public class GDL90Link extends AbstractTmDataLink
         "Sending ForeFlightIDMessage:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
+
+    foreFlightIDCount++;
   }
 
   private void sendOwnshipReport() throws IOException {
@@ -500,6 +503,8 @@ public class GDL90Link extends AbstractTmDataLink
         "Sending OwnshipReport:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
+
+    ownShipReportCount++;
   }
 
   private void AHRSMessage() throws IOException {
@@ -622,10 +627,6 @@ public class GDL90Link extends AbstractTmDataLink
           break;
       }
     }
-
-    //    ahrs.Roll = 10;
-    //    ahrs.Pitch = 5;
-    //    ahrs.Heading = 0;
     try {
       GDL90Datagram.setData(ahrs.toBytes());
     } catch (Exception e) {
@@ -637,9 +638,11 @@ public class GDL90Link extends AbstractTmDataLink
         "Sending AHRS:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
+
+    AHRSCount++;
   }
 
-  private void OwnshipGeoAltitude() throws IOException {
+  private void sendOwnshipGeoAltitude() throws IOException {
 
     com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude geoAlt =
         new com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude();
@@ -697,6 +700,8 @@ public class GDL90Link extends AbstractTmDataLink
         "Sending OwnshipGeoAltitude:"
             + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
+
+    ownshipGeoAltitudeCount++;
   }
 
   public TmPacket getNextPacket() {
@@ -704,15 +709,6 @@ public class GDL90Link extends AbstractTmDataLink
     while (isRunningAndEnabled()) {}
 
     return pwt;
-  }
-
-  @Override
-  public void onTuple(Stream stream, Tuple tuple) {
-    if (isRunningAndEnabled()) {
-      Event event = (Event) tuple.getColumn("body");
-      updateStats(event.getMessage().length());
-      streamEventCount++;
-    }
   }
 
   @Override
@@ -789,7 +785,6 @@ public class GDL90Link extends AbstractTmDataLink
   public void connected() {
     // TODO Auto-generated method stub
 
-    System.out.println("***************Connected");
     subscription = yclient.createParameterSubscription();
     subscription.addListener(this);
     // TODO:Make this configurable
@@ -825,5 +820,23 @@ public class GDL90Link extends AbstractTmDataLink
         paramsToSend.put(pvLabel, p);
       }
     }
+  }
+
+  @Override
+  public long getDataInCount() {
+    // TODO Auto-generated method stub
+    return 0;
+  }
+
+  @Override
+  public long getDataOutCount() {
+    // TODO Auto-generated method stub
+    return heartBeatCount + ownshipGeoAltitudeCount + foreFlightIDCount + AHRSCount;
+  }
+
+  @Override
+  public void resetCounters() {
+    // TODO Auto-generated method stub
+    heartBeatCount = 0;
   }
 }
