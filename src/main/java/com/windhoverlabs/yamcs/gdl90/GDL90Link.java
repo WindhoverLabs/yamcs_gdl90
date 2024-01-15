@@ -46,9 +46,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.yamcs.Processor;
 import org.yamcs.Spec;
 import org.yamcs.TmPacket;
@@ -122,7 +124,8 @@ public class GDL90Link extends AbstractTmDataLink
 
   private ParameterSubscription subscription;
 
-  private HashMap<String, ParameterValue> paramsToSend = new HashMap<String, ParameterValue>();
+  private HashMap<String, org.yamcs.protobuf.Pvalue.ParameterValue> paramsToSend =
+      new HashMap<String, org.yamcs.protobuf.Pvalue.ParameterValue>();
 
   private String yamcsHost;
   private int yamcsPort;
@@ -145,6 +148,8 @@ public class GDL90Link extends AbstractTmDataLink
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
   private boolean foreFlighConnected = false;
+
+  private Map<String, String> pvMap;
 
   String GDL90Hostname;
 
@@ -205,6 +210,8 @@ public class GDL90Link extends AbstractTmDataLink
 
     yamcsHost = this.getConfig().getString("yamcsHost", "http://localhost");
     yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
+
+    pvMap = this.config.getMap("pvMap");
   }
 
   @Override
@@ -520,11 +527,77 @@ public class GDL90Link extends AbstractTmDataLink
 
     //	  TODO:Send Event instead?
     //    System.out.println("*****connected*****");
-    subscription = yclient.createParameterSubscription();
-    subscription.addListener(this);
-    // TODO:Make this configurable
-    for (Map.Entry<String, String> pvName : pvMap.entrySet()) {
-      register(pvName.getValue());
+    //    subscription = yclient.createParameterSubscription();
+    //    subscription.addListener(this);
+    //    // TODO:Make this configurable
+    //    for (Map.Entry<String, String> pvName : pvMap.entrySet()) {
+    //      register(pvName.getValue());
+    //    }
+
+    // TODO Auto-generated method stub
+    for (org.yamcs.protobuf.Pvalue.ParameterValue p : values) {
+      if (pvMap.containsValue(p.getId().getName())) {
+        String pvLabel =
+            pvMap.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(p.getId().getName()))
+                .map(Entry::getKey)
+                .collect(Collectors.toList())
+                .get(0);
+        paramsToSend.put(pvLabel, p);
+      }
     }
+    //	    SimMessage.VehicleStateMessage.Builder msgBuilder =
+    // SimMessage.VehicleStateMessage.newBuilder();
+    //	    for (Map.Entry<String, ParameterValue> pSet : paramsToSend.entrySet()) {
+    //	      org.yamcs.protobuf.Yamcs.Value pv = pSet.getValue().getEngValue();
+    //	      switch (pv.getType()) {
+    //	        case AGGREGATE:
+    //	          break;
+    //	        case ARRAY:
+    //	          break;
+    //	        case BINARY:
+    //	          break;
+    //	        case BOOLEAN:
+    //	          break;
+    //	        case DOUBLE:
+    //	          msgBuilder.setField(
+    //	              SimMessage.VehicleStateMessage.getDescriptor().findFieldByName(pSet.getKey()),
+    //	              pv.getDoubleValue());
+    //	          break;
+    //	        case ENUMERATED:
+    //	          break;
+    //	        case FLOAT:
+    //	          msgBuilder.setField(
+    //	              SimMessage.VehicleStateMessage.getDescriptor().findFieldByName(pSet.getKey()),
+    //	              pv.getFloatValue());
+    //	          break;
+    //	        case NONE:
+    //	          break;
+    //	        case SINT32:
+    //	          break;
+    //	        case SINT64:
+    //	          break;
+    //	        case STRING:
+    //	          break;
+    //	        case TIMESTAMP:
+    //	          break;
+    //	        case UINT32:
+    //	          break;
+    //	        case UINT64:
+    //	          break;
+    //	        default:
+    //	          break;
+    //	      }
+    //	    }
+    //	    SimMessage.VehicleStateMessage msg = msgBuilder.build();
+    //	    DatagramPacket dtg =
+    //	        new DatagramPacket(msg.toByteArray(), msg.toByteArray().length, udpAddress, udpPort);
+    //
+    //	    try {
+    //	      outSocket.send(dtg);
+    //	    } catch (IOException e) {
+    //	      // TODO Auto-generated catch block
+    //	      e.printStackTrace();
+    //	    }
   }
 }
