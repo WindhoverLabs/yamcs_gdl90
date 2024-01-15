@@ -67,8 +67,6 @@ public class OwnshipReport {
 
     ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
 
-    messageStream.write(FlagByte);
-
     messageStream.write(MessageID);
 
     byte st = 0x00;
@@ -108,10 +106,6 @@ public class OwnshipReport {
     messageStream.write(LongitudeBytes[2]);
     messageStream.write(LongitudeBytes[3]);
 
-    // BitSet miscBitSet = new BitSet(8);
-
-    System.out.println("toBytes1");
-    // packAltitude needs to be revisited...
     int packedAltitude = packAltitude(Altitude);
 
     // ddd Big Endian
@@ -124,7 +118,6 @@ public class OwnshipReport {
     }
     if (Airborne) {
       //    	TODO:Set bit accordingly
-      System.out.println("toBytes4");
     }
 
     int dddm = packedAltitude << 20 | (dmByte);
@@ -148,8 +141,6 @@ public class OwnshipReport {
 
     // hhh Big Endian
     byte[] cBytes = ByteBuffer.allocate(4).putInt(c).array();
-
-    //        TODO:Needs to be revisited
 
     messageStream.write(cBytes[0]);
     messageStream.write(cBytes[1]);
@@ -180,8 +171,7 @@ public class OwnshipReport {
     messageStream.write(px);
 
     byte[] crcData = messageStream.toByteArray();
-    int crc = CrcTable.crcCompute(crcData, 1, crcData.length - 1);
-
+    int crc = CrcTable.crcCompute(crcData, 0, crcData.length);
     //
     // Go through message data and escape characters as per the spec
     // ....
@@ -191,9 +181,18 @@ public class OwnshipReport {
     messageStream.write(crcBytes[3]);
     messageStream.write(crcBytes[2]);
 
-    messageStream.write(FlagByte);
+    ByteArrayOutputStream messageStreamOut =
+        com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude.escapeBytes(messageStream.toByteArray());
 
-    byte[] dataOut = messageStream.toByteArray();
+    ByteBuffer bbOut = ByteBuffer.allocate(messageStreamOut.toByteArray().length + 2).put(FlagByte);
+
+    bbOut.put(messageStreamOut.toByteArray());
+
+    bbOut.put(FlagByte);
+
+    byte[] dataOut = bbOut.array();
+
+    messageStream.toByteArray();
 
     return dataOut;
   }
