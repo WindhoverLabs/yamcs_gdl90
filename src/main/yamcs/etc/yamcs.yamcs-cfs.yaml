@@ -60,6 +60,23 @@ dataLinks:
         epoch: CUSTOM
         epochUTC: "1970-01-01T00:00:00Z"
         timeIncludesLeapSeconds: false
+
+  - name: gdl-90
+    class: com.windhoverlabs.yamcs.gdl90.GDL90Link
+    gdl90_host: "10.0.0.221"
+    gdl90_port: 4000
+    # pvMap:
+      # Altitude: "/cfs/cpd/apps/hes/HES_HK_TLM_MID.altitude[0]"
+      # Latitude: "/cfs/cpd/apps/hes/HES_HK_TLM_MID.Lat"
+      # Longitude: "/cfs/cpd/apps/hes/HES_HK_TLM_MID.Lon"
+      # Heading:
+      # TrueTrackAngle
+      # MagneticHeading
+      # ParticipantAddress
+      # horizontalVelocity
+      # verticalVelocity
+      # callSign
+
       
 
 mdb:
