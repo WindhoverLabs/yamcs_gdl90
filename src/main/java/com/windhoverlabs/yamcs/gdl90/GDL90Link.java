@@ -43,10 +43,10 @@ import java.net.UnknownHostException;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -67,7 +67,6 @@ import org.yamcs.protobuf.SubscribeParametersRequest.Action;
 import org.yamcs.protobuf.Yamcs;
 import org.yamcs.protobuf.Yamcs.NamedObjectId;
 import org.yamcs.tctm.AbstractTmDataLink;
-import org.yamcs.tctm.Link.Status;
 import org.yamcs.tctm.PacketInputStream;
 import org.yamcs.xtce.Parameter;
 import org.yamcs.yarch.FileSystemBucket;
@@ -124,8 +123,8 @@ public class GDL90Link extends AbstractTmDataLink
 
   private ParameterSubscription subscription;
 
-  private HashMap<String, org.yamcs.protobuf.Pvalue.ParameterValue> paramsToSend =
-      new HashMap<String, org.yamcs.protobuf.Pvalue.ParameterValue>();
+  private ConcurrentHashMap<String, org.yamcs.protobuf.Pvalue.ParameterValue> paramsToSend =
+      new ConcurrentHashMap<String, org.yamcs.protobuf.Pvalue.ParameterValue>();
 
   private String yamcsHost;
   private int yamcsPort;
@@ -149,7 +148,7 @@ public class GDL90Link extends AbstractTmDataLink
 
   private boolean foreFlighConnected = false;
 
-  private Map<String, String> pvMap;
+  private ConcurrentHashMap<String, String> pvMap;
 
   String GDL90Hostname;
 
@@ -227,7 +226,7 @@ public class GDL90Link extends AbstractTmDataLink
     yamcsHost = this.getConfig().getString("yamcsHost", "http://localhost");
     yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
 
-    pvMap = this.config.getMap("pvMap");
+    pvMap = new ConcurrentHashMap<String, String>(this.config.getMap("pvMap"));
   }
 
   @Override
@@ -394,6 +393,84 @@ public class GDL90Link extends AbstractTmDataLink
     ownship.Latitude = 44.90708;
     ownship.Longitude = -122.99488;
 
+    org.yamcs.protobuf.Pvalue.ParameterValue pvLatitude = paramsToSend.get("Latitude");
+
+    if (pvLatitude != null) {
+      switch (pvLatitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ownship.Latitude = pvLatitude.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ownship.Latitude = pvLatitude.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvLongitude = paramsToSend.get("Longitude");
+
+    if (pvLongitude != null) {
+      switch (pvLongitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ownship.Longitude = pvLongitude.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ownship.Longitude = pvLongitude.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
     ownship.Altitude = 1000;
     ownship.TrueTrackAngle = true;
     ownship.Airborne = true;
@@ -429,7 +506,126 @@ public class GDL90Link extends AbstractTmDataLink
 
     AHRS ahrs = new AHRS();
 
-    //    ahrs.ro = 3000;
+    org.yamcs.protobuf.Pvalue.ParameterValue pvRoll = paramsToSend.get("Roll");
+
+    if (pvRoll != null) {
+      switch (pvRoll.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Roll = (int) pvRoll.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Roll = (int) pvRoll.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvPitch = paramsToSend.get("Pitch");
+
+    if (pvPitch != null) {
+      switch (pvPitch.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Pitch = (int) pvPitch.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Pitch = (int) pvPitch.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvAHRS_Heading = paramsToSend.get("AHRS_Heading");
+
+    if (pvAHRS_Heading != null) {
+      switch (pvAHRS_Heading.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    //    ahrs.Roll = 10;
+    //    ahrs.Pitch = 5;
+    //    ahrs.Heading = 0;
     try {
       GDL90Datagram.setData(ahrs.toBytes());
     } catch (Exception e) {
@@ -449,6 +645,45 @@ public class GDL90Link extends AbstractTmDataLink
         new com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude();
 
     geoAlt.ownshipAltitude = 3000;
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvAltitude = paramsToSend.get("Altitude");
+
+    if (pvAltitude != null) {
+      switch (pvAltitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          geoAlt.ownshipAltitude = (int) pvAltitude.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          geoAlt.ownshipAltitude = (int) pvAltitude.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
     geoAlt.verticalFigureOfMerit = 50;
     geoAlt.verticalWarningIndicator = false;
     try {
@@ -538,7 +773,7 @@ public class GDL90Link extends AbstractTmDataLink
       subscription.sendMessage(
           SubscribeParametersRequest.newBuilder()
               .setInstance(this.yamcsInstance)
-              .setProcessor(processorName)
+              .setProcessor("realtime")
               .setSendFromCache(true)
               .setAbortOnInvalid(false)
               .setUpdateOnExpiration(false)
@@ -554,6 +789,7 @@ public class GDL90Link extends AbstractTmDataLink
   public void connected() {
     // TODO Auto-generated method stub
 
+    System.out.println("***************Connected");
     subscription = yclient.createParameterSubscription();
     subscription.addListener(this);
     // TODO:Make this configurable
@@ -578,16 +814,6 @@ public class GDL90Link extends AbstractTmDataLink
   public void onData(List<org.yamcs.protobuf.Pvalue.ParameterValue> values) {
     // TODO Auto-generated method stub
 
-    //	  TODO:Send Event instead?
-    //    System.out.println("*****connected*****");
-    //    subscription = yclient.createParameterSubscription();
-    //    subscription.addListener(this);
-    //    // TODO:Make this configurable
-    //    for (Map.Entry<String, String> pvName : pvMap.entrySet()) {
-    //      register(pvName.getValue());
-    //    }
-
-    // TODO Auto-generated method stub
     for (org.yamcs.protobuf.Pvalue.ParameterValue p : values) {
       if (pvMap.containsValue(p.getId().getName())) {
         String pvLabel =
@@ -599,58 +825,5 @@ public class GDL90Link extends AbstractTmDataLink
         paramsToSend.put(pvLabel, p);
       }
     }
-    //	    SimMessage.VehicleStateMessage.Builder msgBuilder =
-    // SimMessage.VehicleStateMessage.newBuilder();
-    //	    for (Map.Entry<String, ParameterValue> pSet : paramsToSend.entrySet()) {
-    //	      org.yamcs.protobuf.Yamcs.Value pv = pSet.getValue().getEngValue();
-    //	      switch (pv.getType()) {
-    //	        case AGGREGATE:
-    //	          break;
-    //	        case ARRAY:
-    //	          break;
-    //	        case BINARY:
-    //	          break;
-    //	        case BOOLEAN:
-    //	          break;
-    //	        case DOUBLE:
-    //	          msgBuilder.setField(
-    //	              SimMessage.VehicleStateMessage.getDescriptor().findFieldByName(pSet.getKey()),
-    //	              pv.getDoubleValue());
-    //	          break;
-    //	        case ENUMERATED:
-    //	          break;
-    //	        case FLOAT:
-    //	          msgBuilder.setField(
-    //	              SimMessage.VehicleStateMessage.getDescriptor().findFieldByName(pSet.getKey()),
-    //	              pv.getFloatValue());
-    //	          break;
-    //	        case NONE:
-    //	          break;
-    //	        case SINT32:
-    //	          break;
-    //	        case SINT64:
-    //	          break;
-    //	        case STRING:
-    //	          break;
-    //	        case TIMESTAMP:
-    //	          break;
-    //	        case UINT32:
-    //	          break;
-    //	        case UINT64:
-    //	          break;
-    //	        default:
-    //	          break;
-    //	      }
-    //	    }
-    //	    SimMessage.VehicleStateMessage msg = msgBuilder.build();
-    //	    DatagramPacket dtg =
-    //	        new DatagramPacket(msg.toByteArray(), msg.toByteArray().length, udpAddress, udpPort);
-    //
-    //	    try {
-    //	      outSocket.send(dtg);
-    //	    } catch (IOException e) {
-    //	      // TODO Auto-generated catch block
-    //	      e.printStackTrace();
-    //	    }
   }
 }

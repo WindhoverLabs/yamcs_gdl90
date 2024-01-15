@@ -15,9 +15,9 @@ public class AHRS {
   byte FlagByte = 0x7E;
   private byte MessageID = 0x65;
   private byte AHRSSubMessageID = 0x01;
-  public float Roll;
-  public float Pitch;
-  public float Heading;
+  public int Roll;
+  public int Pitch;
+  public int Heading;
   public int IndicatedAirspeed;
   public int TrueAirspeed;
 
@@ -31,28 +31,28 @@ public class AHRS {
     int packedRoll = packDegrees(Roll);
 
     byte[] packedRollBytes = ByteBuffer.allocate(4).putInt(packedRoll).array();
-    messageStream.write(packedRollBytes[3]);
     messageStream.write(packedRollBytes[2]);
+    messageStream.write(packedRollBytes[3]);
 
     int packedPitch = packDegrees(Pitch);
 
     byte[] packedPitchBytes = ByteBuffer.allocate(4).putInt(packedPitch).array();
-    messageStream.write(packedPitchBytes[3]);
     messageStream.write(packedPitchBytes[2]);
+    messageStream.write(packedPitchBytes[3]);
 
     int packedHeading = packDegrees(Heading);
 
     byte[] packedHeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
-    messageStream.write(packedHeadingBytes[3]);
     messageStream.write(packedHeadingBytes[2]);
+    messageStream.write(packedHeadingBytes[3]);
 
     byte[] IndicatedAirspeedBytes = ByteBuffer.allocate(4).putInt(IndicatedAirspeed).array();
-    messageStream.write(IndicatedAirspeedBytes[3]);
     messageStream.write(IndicatedAirspeedBytes[2]);
+    messageStream.write(IndicatedAirspeedBytes[3]);
 
     byte[] TrueAirspeedBytes = ByteBuffer.allocate(4).putInt(TrueAirspeed).array();
-    messageStream.write(TrueAirspeedBytes[3]);
     messageStream.write(TrueAirspeedBytes[2]);
+    messageStream.write(TrueAirspeedBytes[3]);
 
     byte[] crcData = messageStream.toByteArray();
     int crc = CrcTable.crcCompute(crcData, 0, crcData.length);
@@ -97,11 +97,10 @@ public class AHRS {
   }
 
   public int packAltitude(int altFt) {
-    //	  Double doubleVal = altFt;
     return (int) ((1000 + altFt) / 25);
   }
 
-  public int packDegrees(float heading) {
-    return Math.round((heading / 10) * 1);
+  public int packDegrees(int deg) {
+    return ((deg * 10));
   }
 }
