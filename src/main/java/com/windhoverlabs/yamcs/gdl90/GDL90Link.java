@@ -355,7 +355,7 @@ public class GDL90Link extends AbstractTmDataLink
      */
     ownship.TrafficAlertStatus = false;
     ownship.AddressType = 0;
-//    The ParticipantAddress seems to impact the way Altitude gets displayed on ForeFlight
+    //    The ParticipantAddress seems to impact the way Altitude gets displayed on ForeFlight
     ownship.ParticipantAddress = 0; // base 8
     ownship.Latitude = 44.90708;
     ownship.Longitude = -122.99488;

@@ -23,9 +23,6 @@ public class GDL90Heartbeat {
   //	Sixth and Seventh bytes
   short MesssageCounts;
 
-  /**********/
-  static final String JDK_BUILTIN_NASHORN_ENGINE_NAME = "Oracle Nashorn";
-
   byte[] testSample = {
     0x7e,
     0x00,
@@ -50,7 +47,6 @@ public class GDL90Heartbeat {
     if (UATInitialized) {
       secondByte = (byte) (secondByte | (byte) (1 << 0));
     }
-    System.out.println("toBytes2");
     data[1] = MessageID;
     data[2] = secondByte;
 

@@ -59,8 +59,6 @@ public class OwnshipGeoAltitude {
 
     bbOut.put(messageStreamOut.toByteArray());
 
-    //    messageStreamOut.write(new byte[] {FlagByte}, 0, 1);
-
     bbOut.put(FlagByte);
 
     byte[] dataOut = bbOut.array();

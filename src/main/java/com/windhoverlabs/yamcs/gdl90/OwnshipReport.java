@@ -65,7 +65,6 @@ public class OwnshipReport {
 
   public byte[] toBytes() throws Exception {
 
-    // ByteArrayOutputStream messageStream = minimallyFunctionalMessage();
     ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
 
     messageStream.write(FlagByte);
@@ -91,24 +90,15 @@ public class OwnshipReport {
     messageStream.write(ParticipantAddressBytes[2]);
     messageStream.write(ParticipantAddressBytes[3]);
 
-    // Lat, Long needs to be revisited...
-
     int packed = packLatLong(Latitude);
 
     String tempLat = Integer.toHexString(packed);
 
-    System.out.println("tempLat:" + tempLat);
-
     // llllll Big Endian
     byte[] LatitudeBytes = ByteBuffer.allocate(4).putInt(packed).array();
-    //    messageStream.write(LatitudeBytes[0]);
     messageStream.write(LatitudeBytes[1]);
     messageStream.write(LatitudeBytes[2]);
     messageStream.write(LatitudeBytes[3]);
-    //    messageStream.write(LatitudeBytes[4]);
-    //    messageStream.write(LatitudeBytes[5]);
-    //    messageStream.write(LatitudeBytes[6]);
-    //    messageStream.write(LatitudeBytes[7]);
 
     packed = packLatLong(Longitude);
 
@@ -126,33 +116,18 @@ public class OwnshipReport {
 
     // ddd Big Endian
     byte[] AltitudeBytes = ByteBuffer.allocate(4).putInt(packedAltitude).array();
-    //
-    ////
-    ////    messageStream.write(AltitudeBytes[0]);
-    ////    messageStream.write(AltitudeBytes[1]);
-    //
-    //
-    //    messageStream.write(AltitudeBytes[3]);
 
     byte dmByte = (byte) AltitudeBytes[2];
 
-    System.out.println("toBytes2");
-
     if (TrueTrackAngle) {
-      System.out.println("toBytes3");
       dmByte = (byte) (dmByte | (1 << 0));
     }
     if (Airborne) {
+      //    	TODO:Set bit accordingly
       System.out.println("toBytes4");
-      dmByte = (byte) (dmByte | (1 << 3));
     }
 
-    System.out.println("toBytes5");
-
-    //    messageStream.write(dmByte);
-
     int dddm = packedAltitude << 20 | (dmByte);
-    //        c = c | verticalVelocity;
 
     // hhh Big Endian
     byte[] dddmBytes = ByteBuffer.allocate(4).putInt(dddm).array();
@@ -160,11 +135,7 @@ public class OwnshipReport {
     //        TODO:Needs to be revisited
 
     messageStream.write(dddmBytes[0]);
-    //    messageStream.write(dddmBytes[1]);
-    //    messageStream.write(dddmBytes[2]);
     messageStream.write(dddmBytes[3]);
-
-    //    messageStream.write(AltitudeBytes[3]);
 
     byte iaByte = 0;
 
@@ -173,11 +144,7 @@ public class OwnshipReport {
 
     messageStream.write(iaByte);
 
-    System.out.println("toBytes4");
-    //        hhhvvvSet.
-
     int c = horizontalVelocity << 20 | (verticalVelocity / 64);
-    //        c = c | verticalVelocity;
 
     // hhh Big Endian
     byte[] cBytes = ByteBuffer.allocate(4).putInt(c).array();
@@ -224,12 +191,10 @@ public class OwnshipReport {
     messageStream.write(crcBytes[3]);
     messageStream.write(crcBytes[2]);
 
-    System.out.println("toBytes4:" + messageStream.size());
     messageStream.write(FlagByte);
 
     byte[] dataOut = messageStream.toByteArray();
 
-    System.out.println("Size of dataOut:" + dataOut.length);
     return dataOut;
   }
 
@@ -237,12 +202,10 @@ public class OwnshipReport {
     // Minimally functional message for ForeFlight
     // TODO:Write unit test
     ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
-    System.out.println("toBytes1");
     byte[] data = exampleMesssage();
     messageStream.write(FlagByte);
 
     messageStream.write(MessageID);
-    System.out.println("toBytes2");
     messageStream.write(0x00);
     messageStream.write(0xAB); // "Magic" Byte that makes ForeFlight recognize the device
     messageStream.write(0);
@@ -271,8 +234,6 @@ public class OwnshipReport {
     messageStream.write(0);
     messageStream.write(0);
 
-    System.out.println("toBytes3");
-
     // CRC
 
     //    TODO:Offset needs to be re-calculated for escape characters
@@ -288,7 +249,6 @@ public class OwnshipReport {
     messageStream.write(crcBytes[3]);
     messageStream.write(crcBytes[2]);
 
-    System.out.println("toBytes4:" + messageStream.size());
     messageStream.write(FlagByte);
     return messageStream;
   }
