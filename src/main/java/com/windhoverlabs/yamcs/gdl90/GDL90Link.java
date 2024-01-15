@@ -43,17 +43,27 @@ import java.net.UnknownHostException;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.yamcs.Processor;
 import org.yamcs.Spec;
 import org.yamcs.TmPacket;
 import org.yamcs.YConfiguration;
+import org.yamcs.client.ClientException;
+import org.yamcs.client.ConnectionListener;
+import org.yamcs.client.ParameterSubscription;
+import org.yamcs.client.YamcsClient;
 import org.yamcs.parameter.ParameterValue;
 import org.yamcs.parameter.SystemParametersProducer;
 import org.yamcs.parameter.SystemParametersService;
+import org.yamcs.protobuf.SubscribeParametersRequest;
+import org.yamcs.protobuf.SubscribeParametersRequest.Action;
 import org.yamcs.protobuf.Yamcs;
+import org.yamcs.protobuf.Yamcs.NamedObjectId;
 import org.yamcs.tctm.AbstractTmDataLink;
 import org.yamcs.tctm.Link.Status;
 import org.yamcs.tctm.PacketInputStream;
@@ -65,7 +75,11 @@ import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.protobuf.Db.Event;
 
 public class GDL90Link extends AbstractTmDataLink
-    implements Runnable, StreamSubscriber, SystemParametersProducer {
+    implements Runnable,
+        StreamSubscriber,
+        SystemParametersProducer,
+        ParameterSubscription.Listener,
+        ConnectionListener {
   /* Configuration Defaults */
   static long POLLING_PERIOD_DEFAULT = 1000;
   static int INITIAL_DELAY_DEFAULT = -1;
@@ -105,6 +119,18 @@ public class GDL90Link extends AbstractTmDataLink
 
   private DatagramSocket foreFlightSocket;
   private DatagramSocket GDL90Socket;
+
+  private ParameterSubscription subscription;
+
+  private HashMap<String, ParameterValue> paramsToSend = new HashMap<String, ParameterValue>();
+
+  private String yamcsHost;
+  private int yamcsPort;
+
+  private String processorName;
+  private Processor processor;
+
+  private YamcsClient yclient;
 
   //  int MAX_LENGTH = 32 * 1024;
   int MAX_LENGTH = 32;
@@ -176,6 +202,9 @@ public class GDL90Link extends AbstractTmDataLink
         100,
         1000,
         TimeUnit.MILLISECONDS);
+
+    yamcsHost = this.getConfig().getString("yamcsHost", "http://localhost");
+    yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
   }
 
   @Override
@@ -212,6 +241,22 @@ public class GDL90Link extends AbstractTmDataLink
   protected void doStart() {
     if (!isDisabled()) {
       doEnable();
+    }
+
+    //    TODO: This is unnecessarily complicated
+    yclient =
+        YamcsClient.newBuilder(yamcsHost + ":" + yamcsPort)
+            //            .withConnectionAttempts(config.getInt("connectionAttempts", 20))
+            //            .withRetryDelay(reconnectionDelay)
+            //            .withVerifyTls(config.getBoolean("verifyTls", true))
+            .build();
+    yclient.addConnectionListener(this);
+
+    try {
+      yclient.connectWebSocket();
+    } catch (ClientException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
     }
     notifyStarted();
   }
@@ -414,5 +459,72 @@ public class GDL90Link extends AbstractTmDataLink
     list.add(SystemParametersService.getPV(outOfSyncParam, time, outOfSync));
     list.add(SystemParametersService.getPV(streamEventCountParam, time, streamEventCount));
     list.add(SystemParametersService.getPV(logEventCountParam, time, logEventCount));
+  }
+
+  @Override
+  public void connecting() {
+    // TODO Auto-generated method stub
+
+  }
+
+  public static NamedObjectId identityOf(String pvName) {
+    return NamedObjectId.newBuilder().setName(pvName).build();
+  }
+
+  /** Async adds a Yamcs PV for receiving updates. */
+  public void register(String pvName) {
+    NamedObjectId id = identityOf(pvName);
+    try {
+      subscription.sendMessage(
+          SubscribeParametersRequest.newBuilder()
+              .setInstance(this.yamcsInstance)
+              .setProcessor(processorName)
+              .setSendFromCache(true)
+              .setAbortOnInvalid(false)
+              .setUpdateOnExpiration(false)
+              .addId(id)
+              .setAction(Action.ADD)
+              .build());
+    } catch (Exception e) {
+      System.out.println("e:" + e);
+    }
+  }
+
+  @Override
+  public void connected() {
+    // TODO Auto-generated method stub
+
+    subscription = yclient.createParameterSubscription();
+    subscription.addListener(this);
+    // TODO:Make this configurable
+    for (Map.Entry<String, String> pvName : pvMap.entrySet()) {
+      register(pvName.getValue());
+    }
+  }
+
+  @Override
+  public void connectionFailed(Throwable cause) {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void disconnected() {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void onData(List<org.yamcs.protobuf.Pvalue.ParameterValue> values) {
+    // TODO Auto-generated method stub
+
+    //	  TODO:Send Event instead?
+    //    System.out.println("*****connected*****");
+    subscription = yclient.createParameterSubscription();
+    subscription.addListener(this);
+    // TODO:Make this configurable
+    for (Map.Entry<String, String> pvName : pvMap.entrySet()) {
+      register(pvName.getValue());
+    }
   }
 }
