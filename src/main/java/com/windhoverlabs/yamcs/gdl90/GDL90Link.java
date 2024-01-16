@@ -42,6 +42,7 @@ import java.net.UnknownHostException;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,9 +51,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.yamcs.ConfigurationException;
 import org.yamcs.Processor;
 import org.yamcs.Spec;
-import org.yamcs.TmPacket;
 import org.yamcs.YConfiguration;
 import org.yamcs.client.ClientException;
 import org.yamcs.client.ConnectionListener;
@@ -68,7 +69,14 @@ import org.yamcs.protobuf.Yamcs.NamedObjectId;
 import org.yamcs.tctm.AbstractLink;
 import org.yamcs.tctm.PacketInputStream;
 import org.yamcs.xtce.Parameter;
+import org.yamcs.yarch.ColumnDefinition;
+import org.yamcs.yarch.DataType;
 import org.yamcs.yarch.FileSystemBucket;
+import org.yamcs.yarch.Stream;
+import org.yamcs.yarch.Tuple;
+import org.yamcs.yarch.TupleDefinition;
+import org.yamcs.yarch.YarchDatabase;
+import org.yamcs.yarch.YarchDatabaseInstance;
 
 public class GDL90Link extends AbstractLink
     implements Runnable,
@@ -81,6 +89,7 @@ public class GDL90Link extends AbstractLink
   static boolean IGNORE_INITIAL_DEFAULT = true;
   static boolean CLEAR_BUCKETS_AT_STARTUP_DEFAULT = false;
   static boolean DELETE_FILE_AFTER_PROCESSING_DEFAULT = false;
+  private static TupleDefinition gftdef;
 
   private boolean outOfSync = false;
 
@@ -108,9 +117,6 @@ public class GDL90Link extends AbstractLink
   protected Thread thread;
 
   private String eventStreamName;
-
-  static final String RECTIME_CNAME = "rectime";
-  static final String DATA_EVENT_CNAME = "data";
 
   private DatagramSocket foreFlightSocket;
   private DatagramSocket GDL90Socket;
@@ -147,6 +153,32 @@ public class GDL90Link extends AbstractLink
 
   Integer appNameMax;
   Integer eventMsgMax;
+  private String heartbeatStreamName;
+  private Stream heartbeatStream;
+
+  private String ownShipReportStreamName;
+  private Stream ownShipReportStream;
+
+  private String ownShipGeoAltitudeStreamName;
+  private Stream ownShipGeoAltitudeStream;
+
+  private String AHRSStreamName;
+  private Stream AHRSStream;
+
+  private String ForeFlightIDStreamName;
+  private Stream ForeFlightIDStream;
+
+  static final String RECTIME_CNAME = "rectime";
+  static final String MSG_NAME_CNAME = "MSG_NAME_CNAME";
+  static final String DATA_CNAME = "data";
+
+  static {
+    gftdef = new TupleDefinition();
+    gftdef.addColumn(new ColumnDefinition(RECTIME_CNAME, DataType.TIMESTAMP));
+
+    gftdef.addColumn(new ColumnDefinition(MSG_NAME_CNAME, DataType.STRING));
+    gftdef.addColumn(new ColumnDefinition(DATA_CNAME, DataType.BINARY));
+  }
 
   @Override
   public Spec getSpec() {
@@ -218,6 +250,55 @@ public class GDL90Link extends AbstractLink
     yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
 
     pvMap = new ConcurrentHashMap<String, String>(this.config.getMap("pvMap"));
+
+    YarchDatabaseInstance ydb = YarchDatabase.getInstance(this.yamcsInstance);
+
+    heartbeatStreamName = this.getConfig().getString("heartbeatStream", null);
+
+    if (heartbeatStreamName != null) {
+      this.heartbeatStream = getStream(ydb, heartbeatStreamName);
+    }
+
+    ownShipReportStreamName = this.getConfig().getString("ownShipReportStreamName", null);
+
+    if (ownShipReportStreamName != null) {
+      this.ownShipReportStream = getStream(ydb, ownShipReportStreamName);
+    }
+
+    ownShipGeoAltitudeStreamName = this.getConfig().getString("ownShipGeoAltitudeStreamName", null);
+
+    if (ownShipGeoAltitudeStreamName != null) {
+      this.ownShipGeoAltitudeStream = getStream(ydb, ownShipGeoAltitudeStreamName);
+    }
+
+    ForeFlightIDStreamName = this.getConfig().getString("ForeFlightIDStreamName", null);
+
+    if (ForeFlightIDStreamName != null) {
+      this.ForeFlightIDStream = getStream(ydb, ForeFlightIDStreamName);
+    }
+
+    AHRSStreamName = this.getConfig().getString("AHRSStreamName", null);
+
+    if (AHRSStreamName != null) {
+      this.AHRSStream = getStream(ydb, AHRSStreamName);
+    }
+  }
+
+  private static Stream getStream(YarchDatabaseInstance ydb, String streamName) {
+    Stream stream = ydb.getStream(streamName);
+    if (stream == null) {
+      try {
+        ydb.execute("create stream " + streamName + gftdef.getStringDefinition());
+      } catch (Exception e) {
+        throw new ConfigurationException(e);
+      }
+
+      stream = ydb.getStream(streamName);
+
+    } else {
+      throw new ConfigurationException("Stream " + streamName + " already exists");
+    }
+    return stream;
   }
 
   @Override
@@ -341,23 +422,24 @@ public class GDL90Link extends AbstractLink
     }
   }
 
-  private void sendHeartbeat() throws IOException {
+  private synchronized void sendHeartbeat() throws IOException {
     GDL90Heartbeat beat = new GDL90Heartbeat();
     beat.GPSPosValid = true;
     beat.UATInitialized = true;
     beat.UTC_OK = true;
     byte[] gdlPacket = beat.toBytes();
     GDL90Datagram.setData(gdlPacket);
-    System.out.println(
-        "Sending Heartbeat:"
-            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
 
     GDL90Socket.send(GDL90Datagram);
 
     heartBeatCount++;
+    if (this.heartbeatStream != null) {
+      this.heartbeatStream.emitTuple(
+          new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "Heartbeat", gdlPacket)));
+    }
   }
 
-  private void sendForeFlightID() throws IOException {
+  private synchronized void sendForeFlightID() throws IOException {
     ForeFlightIDMessage id = new ForeFlightIDMessage();
 
     id.DeviceSerialNum = 12;
@@ -369,15 +451,20 @@ public class GDL90Link extends AbstractLink
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-    System.out.println(
-        "Sending ForeFlightIDMessage:"
-            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
+
+    if (this.ForeFlightIDStream != null) {
+      this.ForeFlightIDStream.emitTuple(
+          new Tuple(
+              gftdef,
+              Arrays.asList(
+                  timeService.getMissionTime(), "ForeFlightID", GDL90Datagram.getData())));
+    }
 
     foreFlightIDCount++;
   }
 
-  private void sendOwnshipReport() throws IOException {
+  private synchronized void sendOwnshipReport() throws IOException {
 
     com.windhoverlabs.yamcs.gdl90.OwnshipReport ownship =
         new com.windhoverlabs.yamcs.gdl90.OwnshipReport();
@@ -498,16 +585,20 @@ public class GDL90Link extends AbstractLink
     }
 
     ownship.px = 0;
-
-    System.out.println(
-        "Sending OwnshipReport:"
-            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
 
     ownShipReportCount++;
+
+    if (this.ownShipReportStream != null) {
+      this.ownShipReportStream.emitTuple(
+          new Tuple(
+              gftdef,
+              Arrays.asList(
+                  timeService.getMissionTime(), "ownShipReport", GDL90Datagram.getData())));
+    }
   }
 
-  private void AHRSMessage() throws IOException {
+  private synchronized void AHRSMessage() throws IOException {
 
     AHRS ahrs = new AHRS();
 
@@ -633,16 +724,23 @@ public class GDL90Link extends AbstractLink
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-
-    System.out.println(
-        "Sending AHRS:"
-            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
+
+    if (this.AHRSStream != null) {
+      try {
+        this.AHRSStream.emitTuple(
+            new Tuple(
+                gftdef, Arrays.asList(timeService.getMissionTime(), "AHRSStream", ahrs.toBytes())));
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    }
 
     AHRSCount++;
   }
 
-  private void sendOwnshipGeoAltitude() throws IOException {
+  private synchronized void sendOwnshipGeoAltitude() throws IOException {
 
     com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude geoAlt =
         new com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude();
@@ -695,20 +793,17 @@ public class GDL90Link extends AbstractLink
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-
-    System.out.println(
-        "Sending OwnshipGeoAltitude:"
-            + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Datagram.getData(), true));
     GDL90Socket.send(GDL90Datagram);
 
+    if (this.ownShipGeoAltitudeStream != null) {
+      this.ownShipGeoAltitudeStream.emitTuple(
+          new Tuple(
+              gftdef,
+              Arrays.asList(
+                  timeService.getMissionTime(), "ownShipGeoAltitude", GDL90Datagram.getData())));
+    }
+
     ownshipGeoAltitudeCount++;
-  }
-
-  public TmPacket getNextPacket() {
-    TmPacket pwt = null;
-    while (isRunningAndEnabled()) {}
-
-    return pwt;
   }
 
   @Override
@@ -838,5 +933,8 @@ public class GDL90Link extends AbstractLink
   public void resetCounters() {
     // TODO Auto-generated method stub
     heartBeatCount = 0;
+    ownshipGeoAltitudeCount = 0;
+    foreFlightIDCount = 0;
+    AHRSCount = 0;
   }
 }
