@@ -43,6 +43,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -83,6 +84,20 @@ public class GDL90Link extends AbstractLink
         SystemParametersProducer,
         ParameterSubscription.Listener,
         ConnectionListener {
+
+  class GDL90Device {
+    String host;
+    String port;
+
+    public GDL90Device(String newHost, String newPort) {
+      this.host = newHost;
+      this.port = newPort;
+    }
+
+    public String toString() {
+      return "Host:" + this.host + ", Port:" + this.port;
+    }
+  }
   /* Configuration Defaults */
   static long POLLING_PERIOD_DEFAULT = 1000;
   static int INITIAL_DELAY_DEFAULT = -1;
@@ -134,10 +149,10 @@ public class GDL90Link extends AbstractLink
 
   private YamcsClient yclient;
 
-  int MAX_LENGTH = 32;
+  int MAX_LENGTH = 1024;
   DatagramPacket foreFlightdatagram = new DatagramPacket(new byte[MAX_LENGTH], MAX_LENGTH);
 
-  DatagramPacket GDL90Datagram;
+  public ArrayList<DatagramPacket> DatagramPackets = new ArrayList<DatagramPacket>();
 
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
@@ -172,6 +187,8 @@ public class GDL90Link extends AbstractLink
   static final String MSG_NAME_CNAME = "MSG_NAME_CNAME";
   static final String DATA_CNAME = "data";
 
+  HashMap<String, GDL90Device> gdl90Devices = new HashMap<String, GDL90Device>();
+
   static {
     gftdef = new TupleDefinition();
     gftdef.addColumn(new ColumnDefinition(RECTIME_CNAME, DataType.TIMESTAMP));
@@ -194,15 +211,33 @@ public class GDL90Link extends AbstractLink
     try {
       foreFlightSocket = new DatagramSocket(63093);
 
+      List<Map<String, Object>> devices = this.getConfig().getList("gdl90Devices");
+      for (Map<String, Object> d : devices) {
+        gdl90Devices.put(
+            d.get("gdl90_host").toString(),
+            new GDL90Device(d.get("gdl90_host").toString(), d.get("gdl90_port").toString()));
+      }
+
+      System.out.println(gdl90Devices);
+
       // TODO: Port will eventually be read from brodacasted JSON on 63093 from ForeFlight
       try {
         GDL90Socket = new DatagramSocket();
-        GDL90Datagram =
-            new DatagramPacket(
-                new byte[MAX_LENGTH],
-                MAX_LENGTH,
-                InetAddress.getByName(config.getString("gdl90_host")),
-                config.getInt("gdl90_port"));
+
+        for (GDL90Device g : gdl90Devices.values()) {
+          DatagramPackets.add(
+              new DatagramPacket(
+                  new byte[MAX_LENGTH],
+                  MAX_LENGTH,
+                  InetAddress.getByName(g.host),
+                  Integer.parseInt(g.port)));
+        }
+        //        GDL90Datagram =
+        //            new DatagramPacket(
+        //                new byte[MAX_LENGTH],
+        //                MAX_LENGTH,
+        //                InetAddress.getByName(config.getString("gdl90_host")),
+        //                config.getInt("gdl90_port"));
       } catch (UnknownHostException e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -428,14 +463,17 @@ public class GDL90Link extends AbstractLink
     beat.UATInitialized = true;
     beat.UTC_OK = true;
     byte[] gdlPacket = beat.toBytes();
-    GDL90Datagram.setData(gdlPacket);
 
-    GDL90Socket.send(GDL90Datagram);
+    for (DatagramPacket d : DatagramPackets) {
+      d.setData(gdlPacket);
 
-    heartBeatCount++;
-    if (this.heartbeatStream != null) {
-      this.heartbeatStream.emitTuple(
-          new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "Heartbeat", gdlPacket)));
+      GDL90Socket.send(d);
+
+      heartBeatCount++;
+      if (this.heartbeatStream != null) {
+        this.heartbeatStream.emitTuple(
+            new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "Heartbeat", gdlPacket)));
+      }
     }
   }
 
@@ -445,23 +483,24 @@ public class GDL90Link extends AbstractLink
     id.DeviceSerialNum = 12;
     id.DeviceName = "Airliner";
     id.DeviceLongName = "Airliner";
-    try {
-      GDL90Datagram.setData(id.toBytes());
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
-    GDL90Socket.send(GDL90Datagram);
 
-    if (this.ForeFlightIDStream != null) {
-      this.ForeFlightIDStream.emitTuple(
-          new Tuple(
-              gftdef,
-              Arrays.asList(
-                  timeService.getMissionTime(), "ForeFlightID", GDL90Datagram.getData())));
-    }
+    for (DatagramPacket d : DatagramPackets) {
+      try {
+        d.setData(id.toBytes());
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+      GDL90Socket.send(d);
 
-    foreFlightIDCount++;
+      if (this.ForeFlightIDStream != null) {
+        this.ForeFlightIDStream.emitTuple(
+            new Tuple(
+                gftdef, Arrays.asList(timeService.getMissionTime(), "ForeFlightID", d.getData())));
+      }
+
+      foreFlightIDCount++;
+    }
   }
 
   private synchronized void sendOwnshipReport() throws IOException {
@@ -577,24 +616,25 @@ public class GDL90Link extends AbstractLink
     ownship.ee = 1; // Should be an enum
 
     ownship.callSign = "N825V";
-    try {
-      GDL90Datagram.setData(ownship.toBytes());
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
 
-    ownship.px = 0;
-    GDL90Socket.send(GDL90Datagram);
+    for (DatagramPacket d : DatagramPackets) {
+      try {
+        d.setData(ownship.toBytes());
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
 
-    ownShipReportCount++;
+      ownship.px = 0;
+      GDL90Socket.send(d);
 
-    if (this.ownShipReportStream != null) {
-      this.ownShipReportStream.emitTuple(
-          new Tuple(
-              gftdef,
-              Arrays.asList(
-                  timeService.getMissionTime(), "ownShipReport", GDL90Datagram.getData())));
+      ownShipReportCount++;
+
+      if (this.ownShipReportStream != null) {
+        this.ownShipReportStream.emitTuple(
+            new Tuple(
+                gftdef, Arrays.asList(timeService.getMissionTime(), "ownShipReport", d.getData())));
+      }
     }
   }
 
@@ -718,26 +758,31 @@ public class GDL90Link extends AbstractLink
           break;
       }
     }
-    try {
-      GDL90Datagram.setData(ahrs.toBytes());
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
-    GDL90Socket.send(GDL90Datagram);
 
-    if (this.AHRSStream != null) {
+    for (DatagramPacket d : DatagramPackets) {
+
       try {
-        this.AHRSStream.emitTuple(
-            new Tuple(
-                gftdef, Arrays.asList(timeService.getMissionTime(), "AHRSStream", ahrs.toBytes())));
+        d.setData(ahrs.toBytes());
       } catch (Exception e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
-    }
+      GDL90Socket.send(d);
 
-    AHRSCount++;
+      if (this.AHRSStream != null) {
+        try {
+          this.AHRSStream.emitTuple(
+              new Tuple(
+                  gftdef,
+                  Arrays.asList(timeService.getMissionTime(), "AHRSStream", ahrs.toBytes())));
+        } catch (Exception e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+      }
+
+      AHRSCount++;
+    }
   }
 
   private synchronized void sendOwnshipGeoAltitude() throws IOException {
@@ -787,23 +832,25 @@ public class GDL90Link extends AbstractLink
     }
     geoAlt.verticalFigureOfMerit = 50;
     geoAlt.verticalWarningIndicator = false;
-    try {
-      GDL90Datagram.setData(geoAlt.toBytes());
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
-    GDL90Socket.send(GDL90Datagram);
 
-    if (this.ownShipGeoAltitudeStream != null) {
-      this.ownShipGeoAltitudeStream.emitTuple(
-          new Tuple(
-              gftdef,
-              Arrays.asList(
-                  timeService.getMissionTime(), "ownShipGeoAltitude", GDL90Datagram.getData())));
-    }
+    for (DatagramPacket d : DatagramPackets) {
+      try {
+        d.setData(geoAlt.toBytes());
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+      GDL90Socket.send(d);
 
-    ownshipGeoAltitudeCount++;
+      if (this.ownShipGeoAltitudeStream != null) {
+        this.ownShipGeoAltitudeStream.emitTuple(
+            new Tuple(
+                gftdef,
+                Arrays.asList(timeService.getMissionTime(), "ownShipGeoAltitude", d.getData())));
+      }
+
+      ownshipGeoAltitudeCount++;
+    }
   }
 
   @Override

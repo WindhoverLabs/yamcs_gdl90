@@ -21,6 +21,8 @@ public class AHRS {
   public int IndicatedAirspeed;
   public int TrueAirspeed;
 
+  public AHRSHeading HeadingSource;
+
   public byte[] toBytes() throws Exception {
 
     ByteArrayOutputStream messageStream = new ByteArrayOutputStream();

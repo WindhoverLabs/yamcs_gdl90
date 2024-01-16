@@ -61,17 +61,22 @@ dataLinks:
         epochUTC: "1970-01-01T00:00:00Z"
         timeIncludesLeapSeconds: false
 
-  - name: gdl-90
+  - name: ForeFlight
     class: com.windhoverlabs.yamcs.gdl90.GDL90Link
-    gdl90_host: "10.0.0.221"
-    gdl90_port: 4000
-    pvMap:
-      Altitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Alt"
-      Latitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lat"
-      Longitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lon"
-      Roll: "/cfs/cpd/apps/vn310/Roll"
-      Pitch: "/cfs/cpd/apps/vn310/Pitch"
-      AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
+    heartbeatStream: "heartbeat"
+    ownShipReportStreamName: "ownshipReport"
+    ownShipGeoAltitudeStreamName: "ownShipGeoAltitude"
+    ForeFlightIDStreamName: "ForeFlightIDs"
+    AHRSStreamName: "AHRS"
+    gdl90Devices:
+      - gdl90_host: "172.16.100.93"
+        gdl90_port: 4000
+      - gdl90_host: "172.16.100.132"
+        gdl90_port: 4000
+      - gdl90_host: "172.16.100.68"
+        gdl90_port: 4000
+    yamcsHost: http://172.16.100.69
+    yamcsPort: 8090
 
       
 
