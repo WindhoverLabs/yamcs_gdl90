@@ -31,7 +31,6 @@
  *
  *****************************************************************************/
 
-
 package com.windhoverlabs.yamcs.gdl90;
 
 /** Based on theses specs: https://www.foreflight.com/connect/spec/ */

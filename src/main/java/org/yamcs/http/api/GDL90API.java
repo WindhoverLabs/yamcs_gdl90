@@ -31,7 +31,6 @@
  *
  *****************************************************************************/
 
-
 package org.yamcs.http.api;
 
 import com.windhoverlabs.yamcs.csv.api.AbstractCSVModeApi;

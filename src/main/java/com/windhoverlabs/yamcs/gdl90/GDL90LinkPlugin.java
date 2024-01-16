@@ -31,7 +31,6 @@
  *
  *****************************************************************************/
 
-
 package com.windhoverlabs.yamcs.gdl90;
 
 import org.yamcs.Plugin;
