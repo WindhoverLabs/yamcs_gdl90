@@ -33,6 +33,9 @@
 
 package com.windhoverlabs.yamcs.gdl90;
 
+import static org.yamcs.StandardTupleDefinitions.GENTIME_COLUMN;
+import static org.yamcs.StandardTupleDefinitions.TM_RECTIME_COLUMN;
+
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -46,9 +49,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,11 +76,13 @@ import org.yamcs.protobuf.Yamcs;
 import org.yamcs.protobuf.Yamcs.NamedObjectId;
 import org.yamcs.tctm.AbstractLink;
 import org.yamcs.tctm.PacketInputStream;
+import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.xtce.Parameter;
 import org.yamcs.yarch.ColumnDefinition;
 import org.yamcs.yarch.DataType;
 import org.yamcs.yarch.FileSystemBucket;
 import org.yamcs.yarch.Stream;
+import org.yamcs.yarch.StreamSubscriber;
 import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.TupleDefinition;
 import org.yamcs.yarch.YarchDatabase;
@@ -85,7 +92,8 @@ public class GDL90Link extends AbstractLink
     implements Runnable,
         SystemParametersProducer,
         ParameterSubscription.Listener,
-        ConnectionListener {
+        ConnectionListener,
+        StreamSubscriber {
 
   class GDL90Device {
     String host;
@@ -190,6 +198,9 @@ public class GDL90Link extends AbstractLink
   private String ForeFlightIDStreamName;
   private Stream ForeFlightIDStream;
 
+  private String _1HZ_MsgsStreamName;
+  private Stream _1HZ_MsgsStream;
+
   static final String RECTIME_CNAME = "rectime";
   static final String MSG_NAME_CNAME = "MSG_NAME_CNAME";
   static final String DATA_CNAME = "data";
@@ -197,6 +208,11 @@ public class GDL90Link extends AbstractLink
   //  Make keepAliveConfig configurable, maybe...
 
   public int keepAliveConfig = 30; // Seconds
+
+  private DataSource source;
+
+  Set<Integer> msgIds_1HZ = new HashSet<>();
+  Set<Integer> msgIds_5HZ = new HashSet<>();
 
   ConcurrentHashMap<String, GDL90Device> gdl90Devices =
       new ConcurrentHashMap<String, GDL90Device>();
@@ -247,6 +263,69 @@ public class GDL90Link extends AbstractLink
       e.printStackTrace();
     }
 
+    String sourceString = this.getConfig().getString("DataSource", DataSource.BINARY.toString());
+
+    source = DataSource.valueOf(sourceString);
+
+    switch (source) {
+      case BINARY:
+        initBINARYMode();
+        break;
+      case PV:
+        initPVMode();
+        break;
+      default:
+        break;
+    }
+
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (isRunningAndEnabled()) {
+            for (GDL90Device d : gdl90Devices.values()) {
+              Instant now = Instant.now();
+
+              Instant end = d.lastBroadcastTime;
+              Duration timeElapsed = Duration.between(end, now);
+
+              if (timeElapsed.toMillis() / 1000 > d.keepAliveSeconds) {
+                gdl90Devices.remove(d.host);
+              }
+            }
+          }
+        },
+        1,
+        10,
+        TimeUnit.SECONDS);
+
+    initStreams();
+  }
+
+  private void initPVMode() {
+    initGDL90Timers();
+    yamcsHost = this.getConfig().getString("yamcsHost", "http://localhost");
+    yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
+
+    pvMap = new ConcurrentHashMap<String, String>(this.config.getMap("pvMap"));
+
+    //    TODO: This is unnecessarily complicated
+    yclient =
+        YamcsClient.newBuilder(yamcsHost + ":" + yamcsPort)
+            //            .withConnectionAttempts(config.getInt("connectionAttempts", 20))
+            //            .withRetryDelay(reconnectionDelay)
+            //            .withVerifyTls(config.getBoolean("verifyTls", true))
+            .build();
+    yclient.addConnectionListener(this);
+
+    try {
+      yclient.connectWebSocket();
+    } catch (ClientException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  }
+
+  /** Method only relevant when in PV mode */
+  private void initGDL90Timers() {
     scheduler.scheduleAtFixedRate(
         () -> {
           if (isRunningAndEnabled()) {
@@ -280,32 +359,6 @@ public class GDL90Link extends AbstractLink
         100,
         200,
         TimeUnit.MILLISECONDS);
-
-    scheduler.scheduleAtFixedRate(
-        () -> {
-          if (isRunningAndEnabled()) {
-            for (GDL90Device d : gdl90Devices.values()) {
-              Instant now = Instant.now();
-
-              Instant end = d.lastBroadcastTime;
-              Duration timeElapsed = Duration.between(end, now);
-
-              if (timeElapsed.toMillis() / 1000 > d.keepAliveSeconds) {
-                gdl90Devices.remove(d.host);
-              }
-            }
-          }
-        },
-        1,
-        10,
-        TimeUnit.SECONDS);
-
-    yamcsHost = this.getConfig().getString("yamcsHost", "http://localhost");
-    yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
-
-    pvMap = new ConcurrentHashMap<String, String>(this.config.getMap("pvMap"));
-
-    initStreams();
   }
 
   private void initStreams() {
@@ -342,6 +395,20 @@ public class GDL90Link extends AbstractLink
     }
   }
 
+  private void initBINARYMode() {
+    YarchDatabaseInstance ydb = YarchDatabase.getInstance(this.yamcsInstance);
+    _1HZ_MsgsStreamName = this.getConfig().getString("_1HZ_MsgsStreamName", "tm_realtime");
+
+    if (_1HZ_MsgsStreamName != null) {
+      this._1HZ_MsgsStream = getMsgStream(ydb, _1HZ_MsgsStreamName);
+      _1HZ_MsgsStream.addSubscriber(this);
+    }
+
+    for (Object mid : this.getConfig().getList("1HZ_Messages")) {
+      msgIds_1HZ.add((Integer) mid);
+    }
+  }
+
   private static Stream getStream(YarchDatabaseInstance ydb, String streamName) {
     Stream stream = ydb.getStream(streamName);
     if (stream == null) {
@@ -355,6 +422,21 @@ public class GDL90Link extends AbstractLink
 
     } else {
       throw new ConfigurationException("Stream " + streamName + " already exists");
+    }
+    return stream;
+  }
+
+  /**
+   * Our Message Streams MUST exist when in Binary mode
+   *
+   * @param ydb
+   * @param streamName
+   * @return
+   */
+  private static Stream getMsgStream(YarchDatabaseInstance ydb, String streamName) {
+    Stream stream = ydb.getStream(streamName);
+    if (stream == null) {
+      throw new ConfigurationException("Stream " + streamName + " doesn't exist");
     }
     return stream;
   }
@@ -399,22 +481,6 @@ public class GDL90Link extends AbstractLink
   protected void doStart() {
     if (!isDisabled()) {
       doEnable();
-    }
-
-    //    TODO: This is unnecessarily complicated
-    yclient =
-        YamcsClient.newBuilder(yamcsHost + ":" + yamcsPort)
-            //            .withConnectionAttempts(config.getInt("connectionAttempts", 20))
-            //            .withRetryDelay(reconnectionDelay)
-            //            .withVerifyTls(config.getBoolean("verifyTls", true))
-            .build();
-    yclient.addConnectionListener(this);
-
-    try {
-      yclient.connectWebSocket();
-    } catch (ClientException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
     }
     notifyStarted();
   }
@@ -1023,5 +1089,80 @@ public class GDL90Link extends AbstractLink
     ownshipGeoAltitudeCount = 0;
     foreFlightIDCount = 0;
     AHRSCount = 0;
+  }
+
+  @Override
+  public void onTuple(Stream stream, Tuple t) {
+    // TODO Auto-generated method stub
+
+    byte[] packet = (byte[]) t.getColumn("packet");
+
+    int msgId = ByteArrayUtils.decodeUnsignedShort(packet, 0);
+
+    if (msgIds_1HZ.contains(msgId)) {
+      long rectime = (Long) t.getColumn(TM_RECTIME_COLUMN);
+      long gentime = (Long) t.getColumn(GENTIME_COLUMN);
+
+      try {
+        processPacket(rectime, gentime, packet);
+      } catch (Exception e) {
+        log.warn("Failed to process event packet", e);
+      }
+    }
+  }
+
+  private void processPacket(long rectime, long gentime, byte[] packet) {
+    //    ByteBuffer buf = ByteBuffer.wrap(packet);
+    //    //      Skip CCSDS Header
+    //    buf.position(12);
+    //
+    byte[] GDL90Payload = Arrays.copyOfRange(packet, 12, packet.length);
+    //
+    //        System.out.println(
+    //            "Binary payload:" + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Payload,
+    //     true));
+    //
+    //    System.out.println(
+    //        "Binary payload:" + org.yamcs.utils.StringConverter.arrayToHexString(buf.array(),
+    // true));
+
+    for (GDL90Device d : gdl90Devices.values()) {
+      if (d.alive) {
+        d.datagram.setData(GDL90Payload);
+        try {
+          GDL90Socket.send(d.datagram);
+        } catch (IOException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+        heartBeatCount++;
+        if (this.heartbeatStream != null) {
+          this.heartbeatStream.emitTuple(
+              new Tuple(
+                  gftdef, Arrays.asList(timeService.getMissionTime(), "Heartbeat", GDL90Payload)));
+        }
+      }
+    }
+    //      String msg = decodeString(buf, eventMsgMax);
+    //
+    //      EventSeverity evSev;
+    //
+    //      switch (eventType) {
+    //      case 3:
+    //          evSev = EventSeverity.ERROR;
+    //          break;
+    //      case 4:
+    //          evSev = EventSeverity.CRITICAL;
+    //          break;
+    //      default:
+    //          evSev = EventSeverity.INFO;
+    //      }
+    //
+    //      Event ev = Event.newBuilder().setGenerationTime(gentime).setReceptionTime(rectime)
+    //              .setSeqNumber(0).setSource("/CFS/CPU" + processorId + "/" +
+    // app).setSeverity(evSev)
+    //              .setType("EVID" + eventId).setMessage(msg).build();
+    //
+    //      eventProducer.sendEvent(ev);
   }
 }
