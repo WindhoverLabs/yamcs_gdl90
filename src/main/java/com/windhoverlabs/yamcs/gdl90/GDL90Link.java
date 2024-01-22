@@ -43,6 +43,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.time.Duration;
@@ -267,17 +268,6 @@ public class GDL90Link extends AbstractLink
 
     source = DataSource.valueOf(sourceString);
 
-    switch (source) {
-      case BINARY:
-        initBINARYMode();
-        break;
-      case PV:
-        initPVMode();
-        break;
-      default:
-        break;
-    }
-
     scheduler.scheduleAtFixedRate(
         () -> {
           if (isRunningAndEnabled()) {
@@ -482,6 +472,16 @@ public class GDL90Link extends AbstractLink
     if (!isDisabled()) {
       doEnable();
     }
+    switch (source) {
+      case BINARY:
+        initBINARYMode();
+        break;
+      case PV:
+        initPVMode();
+        break;
+      default:
+        break;
+    }
     notifyStarted();
   }
 
@@ -552,13 +552,16 @@ public class GDL90Link extends AbstractLink
         byte[] gdlPacket = beat.toBytes();
         d.datagram.setData(gdlPacket);
         GDL90Socket.send(d.datagram);
-        heartBeatCount++;
-        if (this.heartbeatStream != null) {
-          this.heartbeatStream.emitTuple(
-              new Tuple(
-                  gftdef, Arrays.asList(timeService.getMissionTime(), "Heartbeat", gdlPacket)));
-        }
+        reportHeartbeatStatus(gdlPacket);
       }
+    }
+  }
+
+  private void reportHeartbeatStatus(byte[] d) {
+    heartBeatCount++;
+    if (this.heartbeatStream != null) {
+      this.heartbeatStream.emitTuple(
+          new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "Heartbeat", d)));
     }
   }
 
@@ -720,16 +723,17 @@ public class GDL90Link extends AbstractLink
         ownship.px = 0;
         GDL90Socket.send(d.datagram);
 
-        ownShipReportCount++;
-
-        if (this.ownShipReportStream != null) {
-          this.ownShipReportStream.emitTuple(
-              new Tuple(
-                  gftdef,
-                  Arrays.asList(
-                      timeService.getMissionTime(), "ownShipReport", d.datagram.getData())));
-        }
+        reportOwnshipStatus(d.datagram.getData());
       }
+    }
+  }
+
+  private void reportOwnshipStatus(byte[] d) {
+    ownShipReportCount++;
+
+    if (this.ownShipReportStream != null) {
+      this.ownShipReportStream.emitTuple(
+          new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "ownShipReport", d)));
     }
   }
 
@@ -1112,57 +1116,77 @@ public class GDL90Link extends AbstractLink
   }
 
   private void processPacket(long rectime, long gentime, byte[] packet) {
-    //    ByteBuffer buf = ByteBuffer.wrap(packet);
-    //    //      Skip CCSDS Header
-    //    buf.position(12);
-    //
     byte[] GDL90Payload = Arrays.copyOfRange(packet, 12, packet.length);
-    //
-    //        System.out.println(
-    //            "Binary payload:" + org.yamcs.utils.StringConverter.arrayToHexString(GDL90Payload,
-    //     true));
-    //
-    //    System.out.println(
-    //        "Binary payload:" + org.yamcs.utils.StringConverter.arrayToHexString(buf.array(),
-    // true));
+
+    ArrayList<ArrayList<Byte>> allMessages = new ArrayList<ArrayList<Byte>>();
+    for (int i = 0; i < GDL90Payload.length; ) {
+      int sizeOfCurrentMessage = 0;
+      if (GDL90Payload[i] == 0x7E) {
+        boolean completeMsg = false;
+        ArrayList<Byte> msg = new ArrayList<Byte>();
+        msg.add(GDL90Payload[i]);
+        sizeOfCurrentMessage++;
+        for (int j = i + 1; j < GDL90Payload.length; j++) {
+          sizeOfCurrentMessage++;
+          msg.add(GDL90Payload[j]);
+          if (GDL90Payload[j] == 0x7E) {
+            completeMsg = true;
+            break;
+          }
+        }
+        i += sizeOfCurrentMessage;
+        if (completeMsg) {
+          allMessages.add(msg);
+        }
+      } else {
+        i += 1;
+      }
+    }
 
     for (GDL90Device d : gdl90Devices.values()) {
       if (d.alive) {
-        d.datagram.setData(GDL90Payload);
-        try {
-          GDL90Socket.send(d.datagram);
-        } catch (IOException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
-        }
-        heartBeatCount++;
-        if (this.heartbeatStream != null) {
-          this.heartbeatStream.emitTuple(
-              new Tuple(
-                  gftdef, Arrays.asList(timeService.getMissionTime(), "Heartbeat", GDL90Payload)));
+
+        for (ArrayList<Byte> msg : allMessages) {
+          ByteBuffer msgBuffer = ByteBuffer.allocate(msg.size());
+
+          for (Byte b : msg) {
+            msgBuffer.put(b);
+          }
+
+          byte[] payload = msgBuffer.array();
+          byte payloadMsgId = 0x00;
+          if (payload.length > 2) {
+            payloadMsgId = payload[1];
+          } else {
+            //        	  Should not happen. Add Error event/log message
+            return;
+          }
+
+          d.datagram.setData(payload);
+          try {
+            GDL90Socket.send(d.datagram);
+          } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+          }
+          switch (payloadMsgId) {
+            case GDL90Heartbeat.MessageID:
+              {
+                reportHeartbeatStatus(payload);
+                break;
+              }
+            case OwnshipReport.MessageID:
+              {
+                reportOwnshipStatus(payload);
+                break;
+              }
+
+            default:
+              /** Unknown MID. Report event/log message. */
+              break;
+          }
         }
       }
     }
-    //      String msg = decodeString(buf, eventMsgMax);
-    //
-    //      EventSeverity evSev;
-    //
-    //      switch (eventType) {
-    //      case 3:
-    //          evSev = EventSeverity.ERROR;
-    //          break;
-    //      case 4:
-    //          evSev = EventSeverity.CRITICAL;
-    //          break;
-    //      default:
-    //          evSev = EventSeverity.INFO;
-    //      }
-    //
-    //      Event ev = Event.newBuilder().setGenerationTime(gentime).setReceptionTime(rectime)
-    //              .setSeqNumber(0).setSource("/CFS/CPU" + processorId + "/" +
-    // app).setSeverity(evSev)
-    //              .setType("EVID" + eventId).setMessage(msg).build();
-    //
-    //      eventProducer.sendEvent(ev);
   }
 }

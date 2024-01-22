@@ -46,7 +46,7 @@ import java.nio.ByteBuffer;
 public class AHRS {
 
   byte FlagByte = 0x7E;
-  private byte MessageID = 0x65;
+  public static byte MessageID = 0x65;
   private byte AHRSSubMessageID = 0x01;
   public int Roll;
   public int Pitch;

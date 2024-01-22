@@ -40,7 +40,7 @@ public class OwnshipGeoAltitude {
 
   byte FlagByte = 0x7E;
   //	First Byte
-  private byte MessageID = 11;
+  public static byte MessageID = 11;
 
   public int ownshipAltitude;
 

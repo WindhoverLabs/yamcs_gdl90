@@ -45,7 +45,7 @@ public class GDL90Heartbeat {
 
   /**********/
   //	First Byte
-  private byte MessageID = 0x00;
+  public static final byte MessageID = 0x00;
   //	Second Byte
   public boolean GPSPosValid, MaintRquired, INDENT, AddrType, GPSBattLow, RATCS, UATInitialized;
 

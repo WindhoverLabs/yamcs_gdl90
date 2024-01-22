@@ -45,7 +45,7 @@ public class OwnshipReport {
 
   byte FlagByte = 0x7E;
   //	First Byte
-  private byte MessageID = 10;
+  public static final byte MessageID = 10;
 
   //	  Traffic Alert Status (s)
   public boolean TrafficAlertStatus;
