@@ -46,8 +46,8 @@ import java.nio.ByteBuffer;
 public class ForeFlightIDMessage {
 
   byte FlagByte = 0x7E;
-  public static byte MessageID = 0x65;
-  private byte ForeFlightSubMessageID = 0x00;
+  public static final byte MessageID = 0x65;
+  public static final byte ForeFlightSubMessageID = 0x00;
   private byte Version = 0x01;
 
   public long DeviceSerialNum;

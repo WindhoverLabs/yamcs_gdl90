@@ -583,17 +583,18 @@ public class GDL90Link extends AbstractLink
         }
         GDL90Socket.send(d.datagram);
 
-        if (this.ForeFlightIDStream != null) {
-          this.ForeFlightIDStream.emitTuple(
-              new Tuple(
-                  gftdef,
-                  Arrays.asList(
-                      timeService.getMissionTime(), "ForeFlightID", d.datagram.getData())));
-        }
-
-        foreFlightIDCount++;
+        reportForeFlightID(d.datagram.getData());
       }
     }
+  }
+
+  private void reportForeFlightID(byte[] d) {
+    if (this.ForeFlightIDStream != null) {
+      this.ForeFlightIDStream.emitTuple(
+          new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "ForeFlightID", d)));
+    }
+
+    foreFlightIDCount++;
   }
 
   private synchronized void sendOwnshipReport() throws IOException {
@@ -707,7 +708,7 @@ public class GDL90Link extends AbstractLink
 
         ownship.verticalVelocity = 64; // FPM
 
-        ownship.trackHeading = 45; // Degrees
+        ownship.trackHeading = 0; // Degrees
 
         ownship.ee = 1; // Should be an enum
 
@@ -869,22 +870,24 @@ public class GDL90Link extends AbstractLink
           e.printStackTrace();
         }
         GDL90Socket.send(d.datagram);
-
-        if (this.AHRSStream != null) {
-          try {
-            this.AHRSStream.emitTuple(
-                new Tuple(
-                    gftdef,
-                    Arrays.asList(timeService.getMissionTime(), "AHRSStream", ahrs.toBytes())));
-          } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-          }
-        }
-
-        AHRSCount++;
+        reportAHRS(d.datagram.getData());
       }
     }
+  }
+
+  public void reportAHRS(byte[] d) {
+
+    if (this.AHRSStream != null) {
+      try {
+        this.AHRSStream.emitTuple(
+            new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "AHRSStream", d)));
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    }
+
+    AHRSCount++;
   }
 
   private synchronized void sendOwnshipGeoAltitude() throws IOException {
@@ -946,17 +949,18 @@ public class GDL90Link extends AbstractLink
         }
         GDL90Socket.send(d.datagram);
 
-        if (this.ownShipGeoAltitudeStream != null) {
-          this.ownShipGeoAltitudeStream.emitTuple(
-              new Tuple(
-                  gftdef,
-                  Arrays.asList(
-                      timeService.getMissionTime(), "ownShipGeoAltitude", d.datagram.getData())));
-        }
-
-        ownshipGeoAltitudeCount++;
+        reportOwnshipGeoAltitude(d.datagram.getData());
       }
     }
+  }
+
+  private void reportOwnshipGeoAltitude(byte[] d) {
+    if (this.ownShipGeoAltitudeStream != null) {
+      this.ownShipGeoAltitudeStream.emitTuple(
+          new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "ownShipGeoAltitude", d)));
+    }
+
+    ownshipGeoAltitudeCount++;
   }
 
   @Override
@@ -1131,6 +1135,7 @@ public class GDL90Link extends AbstractLink
           msg.add(GDL90Payload[j]);
           if (GDL90Payload[j] == 0x7E) {
             completeMsg = true;
+            i++;
             break;
           }
         }
@@ -1181,6 +1186,30 @@ public class GDL90Link extends AbstractLink
                 break;
               }
 
+            case OwnshipGeoAltitude.MessageID:
+              {
+                reportOwnshipGeoAltitude(payload);
+                break;
+              }
+            case ForeFlightIDMessage.MessageID:
+              {
+                byte ForeFlightSubMsgId = payload[2];
+
+                switch (ForeFlightSubMsgId) {
+                  case ForeFlightIDMessage.ForeFlightSubMessageID:
+                    {
+                      reportForeFlightID(payload);
+                      break;
+                    }
+                  case AHRS.AHRSSubMessageID:
+                    {
+                      reportAHRS(payload);
+                      break;
+                    }
+                }
+
+                break;
+              }
             default:
               /** Unknown MID. Report event/log message. */
               break;
