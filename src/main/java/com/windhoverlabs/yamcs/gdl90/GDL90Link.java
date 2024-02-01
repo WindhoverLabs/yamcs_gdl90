@@ -202,6 +202,9 @@ public class GDL90Link extends AbstractLink
   private String _1HZ_MsgsStreamName;
   private Stream _1HZ_MsgsStream;
 
+  private String _5HZ_MsgsStreamName;
+  private Stream _5HZ_MsgsStream;
+
   static final String RECTIME_CNAME = "rectime";
   static final String MSG_NAME_CNAME = "MSG_NAME_CNAME";
   static final String DATA_CNAME = "data";
@@ -386,6 +389,11 @@ public class GDL90Link extends AbstractLink
   }
 
   private void initBINARYMode() {
+    init1HZ();
+    init5HZ();
+  }
+
+  private void init1HZ() {
     YarchDatabaseInstance ydb = YarchDatabase.getInstance(this.yamcsInstance);
     _1HZ_MsgsStreamName = this.getConfig().getString("_1HZ_MsgsStreamName", "tm_realtime");
 
@@ -396,6 +404,25 @@ public class GDL90Link extends AbstractLink
 
     for (Object mid : this.getConfig().getList("1HZ_Messages")) {
       msgIds_1HZ.add((Integer) mid);
+    }
+  }
+
+  private void init5HZ() {
+    YarchDatabaseInstance ydb = YarchDatabase.getInstance(this.yamcsInstance);
+    _5HZ_MsgsStreamName = this.getConfig().getString("_5HZ_MsgsStreamName", "tm_realtime");
+
+    if (_5HZ_MsgsStreamName != null) {
+      this._5HZ_MsgsStream = getMsgStream(ydb, _5HZ_MsgsStreamName);
+
+      //      Do not subscribe twice to the same stream (such as realtime). Otherwise, the counts
+      // will lie.
+      if (!this._5HZ_MsgsStream.getSubscribers().contains(this)) {
+        _5HZ_MsgsStream.addSubscriber(this);
+      }
+    }
+
+    for (Object mid : this.getConfig().getList("5HZ_Messages")) {
+      msgIds_5HZ.add((Integer) mid);
     }
   }
 
@@ -1108,6 +1135,15 @@ public class GDL90Link extends AbstractLink
     int msgId = ByteArrayUtils.decodeUnsignedShort(packet, 0);
 
     if (msgIds_1HZ.contains(msgId)) {
+      long rectime = (Long) t.getColumn(TM_RECTIME_COLUMN);
+      long gentime = (Long) t.getColumn(GENTIME_COLUMN);
+
+      try {
+        processPacket(rectime, gentime, packet);
+      } catch (Exception e) {
+        log.warn("Failed to process event packet", e);
+      }
+    } else if (msgIds_5HZ.contains(msgId)) {
       long rectime = (Long) t.getColumn(TM_RECTIME_COLUMN);
       long gentime = (Long) t.getColumn(GENTIME_COLUMN);
 
