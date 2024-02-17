@@ -792,6 +792,49 @@ public class GDL90Link extends AbstractLink
           }
         }
 
+        org.yamcs.protobuf.Pvalue.ParameterValue pvHorizontalSpeed =
+            paramsToSend.get("HorizontalSpeed");
+
+        if (pvHorizontalSpeed != null) {
+          switch (pvHorizontalSpeed.getEngValue().getType()) {
+            case AGGREGATE:
+              break;
+            case ARRAY:
+              break;
+            case BINARY:
+              break;
+            case BOOLEAN:
+              break;
+            case DOUBLE:
+              //            	Assumes the PV is in meters/second. Convert to Knots
+              ownship.horizontalVelocity =
+                  (int) mpsToKnots((float) pvHorizontalSpeed.getEngValue().getDoubleValue());
+              break;
+            case ENUMERATED:
+              break;
+            case FLOAT:
+              ownship.horizontalVelocity =
+                  (int) mpsToKnots(pvHorizontalSpeed.getEngValue().getFloatValue());
+              break;
+            case NONE:
+              break;
+            case SINT32:
+              break;
+            case SINT64:
+              break;
+            case STRING:
+              break;
+            case TIMESTAMP:
+              break;
+            case UINT32:
+              break;
+            case UINT64:
+              break;
+            default:
+              break;
+          }
+        }
+
         ownship.Altitude = 1000;
         ownship.TrueTrackAngle = true;
         ownship.Airborne = true;
@@ -799,7 +842,7 @@ public class GDL90Link extends AbstractLink
         ownship.i = 10;
         ownship.a = 9;
 
-        ownship.horizontalVelocity = 90; // Knots
+        //        ownship.horizontalVelocity = 90; // Knots
 
         ownship.verticalVelocity = 64; // FPM
 
@@ -1321,5 +1364,9 @@ public class GDL90Link extends AbstractLink
         }
       }
     }
+  }
+
+  private double mpsToKnots(float mps) {
+    return ((1.943844) * (mps));
   }
 }
