@@ -37,6 +37,8 @@ import static org.yamcs.StandardTupleDefinitions.GENTIME_COLUMN;
 import static org.yamcs.StandardTupleDefinitions.TM_RECTIME_COLUMN;
 
 import com.google.gson.Gson;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -46,6 +48,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -61,9 +64,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.yamcs.ConfigurationException;
+import org.yamcs.InitException;
 import org.yamcs.Processor;
+import org.yamcs.ProcessorException;
+import org.yamcs.ProcessorFactory;
 import org.yamcs.Spec;
+import org.yamcs.ValidationException;
 import org.yamcs.YConfiguration;
+import org.yamcs.archive.ReplayOptions;
 import org.yamcs.client.ClientException;
 import org.yamcs.client.ConnectionListener;
 import org.yamcs.client.ParameterSubscription;
@@ -74,7 +82,9 @@ import org.yamcs.parameter.SystemParametersService;
 import org.yamcs.protobuf.SubscribeParametersRequest;
 import org.yamcs.protobuf.SubscribeParametersRequest.Action;
 import org.yamcs.protobuf.Yamcs;
+import org.yamcs.protobuf.Yamcs.EndAction;
 import org.yamcs.protobuf.Yamcs.NamedObjectId;
+import org.yamcs.protobuf.Yamcs.ReplayRequest;
 import org.yamcs.tctm.AbstractLink;
 import org.yamcs.tctm.PacketInputStream;
 import org.yamcs.utils.ByteArrayUtils;
@@ -104,6 +114,8 @@ public class GDL90Link extends AbstractLink
     int keepAliveSeconds;
     Instant lastBroadcastTime;
 
+    AHRSMode ahrsMode;
+
     public GDL90Device(
         String newHost,
         String newPort,
@@ -124,11 +136,6 @@ public class GDL90Link extends AbstractLink
     }
   }
   /* Configuration Defaults */
-  static long POLLING_PERIOD_DEFAULT = 1000;
-  static int INITIAL_DELAY_DEFAULT = -1;
-  static boolean IGNORE_INITIAL_DEFAULT = true;
-  static boolean CLEAR_BUCKETS_AT_STARTUP_DEFAULT = false;
-  static boolean DELETE_FILE_AFTER_PROCESSING_DEFAULT = false;
   private static TupleDefinition gftdef;
 
   private boolean outOfSync = false;
@@ -151,8 +158,6 @@ public class GDL90Link extends AbstractLink
   protected List<WatchKey> watchKeys;
   protected Thread thread;
 
-  private String eventStreamName;
-
   private DatagramSocket foreFlightSocket;
   private DatagramSocket GDL90Socket;
 
@@ -166,6 +171,8 @@ public class GDL90Link extends AbstractLink
 
   private String processorName;
   private Processor processor;
+
+  private ReplayOptions replayOptions;
 
   private YamcsClient yclient;
 
@@ -221,6 +228,13 @@ public class GDL90Link extends AbstractLink
   ConcurrentHashMap<String, GDL90Device> gdl90Devices =
       new ConcurrentHashMap<String, GDL90Device>();
 
+  private String start;
+  private String stop;
+  private Timestamp startTimeStamp;
+  private Timestamp stopTimeStamp;
+
+  private boolean realtime;
+
   static {
     gftdef = new TupleDefinition();
     gftdef.addColumn(new ColumnDefinition(RECTIME_CNAME, DataType.TIMESTAMP));
@@ -271,6 +285,8 @@ public class GDL90Link extends AbstractLink
 
     source = DataSource.valueOf(sourceString);
 
+    processorName = this.getConfig().getString("processor", "realtime");
+
     scheduler.scheduleAtFixedRate(
         () -> {
           if (isRunningAndEnabled()) {
@@ -299,6 +315,52 @@ public class GDL90Link extends AbstractLink
     yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
 
     pvMap = new ConcurrentHashMap<String, String>(this.config.getMap("pvMap"));
+
+    realtime = this.config.getBoolean("realtime", true);
+
+    String sourceString = this.getConfig().getString("DataSource", DataSource.BINARY.toString());
+
+    source = DataSource.valueOf(sourceString);
+
+    if (!this.realtime) {
+      processorName = this.config.getString("processorName", "GDL90LinkReplay");
+      start = this.config.getString("start");
+      stop = this.config.getString("stop");
+      try {
+        startTimeStamp = Timestamps.parse(start);
+      } catch (ParseException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+      try {
+        stopTimeStamp = Timestamps.parse(stop);
+      } catch (ParseException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+      replayOptions =
+          new ReplayOptions(
+              ReplayRequest.newBuilder()
+                  .setStart(startTimeStamp)
+                  .setStop(stopTimeStamp)
+                  .setEndAction(EndAction.LOOP)
+                  .setAutostart(true)
+                  .build());
+
+      try {
+        processor =
+            ProcessorFactory.create(
+                yamcsInstance, processorName, "Archive", GDL90Link.class.toString(), replayOptions);
+      } catch (ProcessorException
+          | ConfigurationException
+          | ValidationException
+          | InitException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    } else {
+      processorName = "realtime";
+    }
 
     //    TODO: This is unnecessarily complicated
     yclient =
@@ -508,6 +570,12 @@ public class GDL90Link extends AbstractLink
         break;
       default:
         break;
+    }
+
+    if (!realtime) {
+      log.info("Starting new processor '{}'", processor.getName());
+      processor.startAsync();
+      processor.awaitRunning();
     }
     notifyStarted();
   }
@@ -1042,13 +1110,13 @@ public class GDL90Link extends AbstractLink
   }
 
   /** Async adds a Yamcs PV for receiving updates. */
-  public void register(String pvName) {
+  public void register(String pvName, String processor) {
     NamedObjectId id = identityOf(pvName);
     try {
       subscription.sendMessage(
           SubscribeParametersRequest.newBuilder()
               .setInstance(this.yamcsInstance)
-              .setProcessor("realtime")
+              .setProcessor(processor)
               .setSendFromCache(true)
               .setAbortOnInvalid(false)
               .setUpdateOnExpiration(false)
@@ -1068,7 +1136,7 @@ public class GDL90Link extends AbstractLink
     subscription.addListener(this);
     // TODO:Make this configurable
     for (Map.Entry<String, String> pvName : pvMap.entrySet()) {
-      register(pvName.getValue());
+      register(pvName.getValue(), processorName);
     }
   }
 

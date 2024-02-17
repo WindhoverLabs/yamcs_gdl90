@@ -68,7 +68,7 @@ dataLinks:
     ownShipGeoAltitudeStreamName: "ownShipGeoAltitude"
     ForeFlightIDStreamName: "ForeFlightIDs"
     AHRSStreamName: "AHRS"
-    DataSource: BINARY
+    DataSource: PV
     1HZ_Messages: [0x098b]
     5HZ_Messages: [0x098d]
     # gdl90Devices:
@@ -78,17 +78,26 @@ dataLinks:
     #   #   gdl90_port: 4000
     #   - gdl90_host: "172.16.100.68"
     #     gdl90_port: 4000
-    yamcsHost: http://172.16.100.69
+    yamcsHost: http://127.0.0.1
     yamcsPort: 8090
     pvMap:
       Altitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Alt"
       Latitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lat"
       Longitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lon"
+      # AHRS:
+      #   Roll: "/cfs/cpd/apps/vn310/Roll"
+      #   Pitch: "/cfs/cpd/apps/vn310/Pitch"
+      #   AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
+      #   # Qt_PV?
+      #   mode: QUATERNION
+      # True_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
+      # Magnetic_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
       Roll: "/cfs/cpd/apps/vn310/Roll"
       Pitch: "/cfs/cpd/apps/vn310/Pitch"
       AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
-      # True_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
-      # Magnetic_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
+    start: "2023-09-27T12:44:11.25Z"
+    stop: "2023-09-27T13:15:11.25Z"
+    realtime: false
 
       
 
