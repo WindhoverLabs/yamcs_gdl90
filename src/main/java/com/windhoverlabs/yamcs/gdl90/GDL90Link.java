@@ -1051,12 +1051,14 @@ public class GDL90Link extends AbstractLink
             case BOOLEAN:
               break;
             case DOUBLE:
-              geoAlt.ownshipAltitude = (int) pvAltitude.getEngValue().getDoubleValue();
+              //            	Meters to feet. Should be made configurable, maybe...
+              geoAlt.ownshipAltitude = (int) (pvAltitude.getEngValue().getDoubleValue() * 3.28084);
               break;
             case ENUMERATED:
               break;
             case FLOAT:
-              geoAlt.ownshipAltitude = (int) pvAltitude.getEngValue().getFloatValue();
+              //            	Meters to feet. Should be made configurable, maybe...
+              geoAlt.ownshipAltitude = (int) (pvAltitude.getEngValue().getFloatValue() * 3.28084);
               break;
             case NONE:
               break;
