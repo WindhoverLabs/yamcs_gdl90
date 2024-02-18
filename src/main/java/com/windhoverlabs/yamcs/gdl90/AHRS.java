@@ -77,6 +77,17 @@ public class AHRS {
 
     int packedHeading = packDegrees(Heading);
 
+    //    0x01C2 = 450
+    //    int packedHeading = packDegrees(45);
+
+    //        Get this "true" from TrueHeading on YAML.
+    if (true) {
+      //        packedHeading = (packedHeading | (1 << 15));
+      //      packedHeading = packedHeading & 0xfffe;
+      //      packedHeading = packedHeading | ~0x8000;
+      packedHeading = packedHeading | ~(1 << 15);
+    }
+
     byte[] packedHeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
     messageStream.write(packedHeadingBytes[2]);
     messageStream.write(packedHeadingBytes[3]);

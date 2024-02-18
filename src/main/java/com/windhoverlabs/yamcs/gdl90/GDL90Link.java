@@ -713,6 +713,8 @@ public class GDL90Link extends AbstractLink
         ownship.ParticipantAddress = 0; // base 8
         ownship.Latitude = 44.90708;
         ownship.Longitude = -122.99488;
+        //        TODO: Should be used for AHRS heading bit
+        ownship.TrueHeading = this.config.getBoolean("TrueHeading");
 
         org.yamcs.protobuf.Pvalue.ParameterValue pvLatitude = paramsToSend.get("Latitude");
 
