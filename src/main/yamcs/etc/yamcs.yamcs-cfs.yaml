@@ -78,8 +78,8 @@ dataLinks:
     #   #   gdl90_port: 4000
     #   - gdl90_host: "172.16.100.68"
     #     gdl90_port: 4000
-    yamcsHost: http://127.0.0.1
-    yamcsPort: 8090
+    # yamcsHost: http://127.0.0.1
+    # yamcsPort: 8090
     pvMap:
       Altitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Alt"
       Latitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lat"
@@ -92,12 +92,16 @@ dataLinks:
       #   mode: QUATERNION
       # True_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
       # Magnetic_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
-      Roll: "/cfs/cpd/apps/vn310/Roll"
-      Pitch: "/cfs/cpd/apps/vn310/Pitch"
-      AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
-    start: "2023-09-27T12:44:11.25Z"
-    stop: "2023-09-27T13:15:11.25Z"
+      Roll: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Roll"
+      Pitch: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Pitch"
+      AHRS_Heading: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Yaw"
+      HorizontalSpeed: "/cfs/cpd/apps/fac/FAC_ALPHA_CONTROLLER_MID.ControlData.groundspeed"
+    start: "2024-02-17T20:38:11.25Z"
+    stop: "2024-02-17T20:42:45.25Z"
     realtime: false
+    TrueHeading: true
+    AHRSHeadingType: TRUE_HEADING # [TRUE_HEADING, MAGNETIC]
+
 
       
 

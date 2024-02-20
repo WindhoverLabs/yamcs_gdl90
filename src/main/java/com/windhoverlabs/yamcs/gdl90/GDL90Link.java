@@ -222,6 +222,8 @@ public class GDL90Link extends AbstractLink
 
   private DataSource source;
 
+  private AHRSHeadingType headingType;
+
   Set<Integer> msgIds_1HZ = new HashSet<>();
   Set<Integer> msgIds_5HZ = new HashSet<>();
 
@@ -321,6 +323,11 @@ public class GDL90Link extends AbstractLink
     String sourceString = this.getConfig().getString("DataSource", DataSource.BINARY.toString());
 
     source = DataSource.valueOf(sourceString);
+
+    String headingString =
+        this.getConfig().getString("AHRSHeadingType", AHRSHeadingType.TRUE_HEADING.toString());
+
+    headingType = AHRSHeadingType.valueOf(headingString);
 
     if (!this.realtime) {
       processorName = this.config.getString("processorName", "GDL90LinkReplay");
@@ -1004,6 +1011,7 @@ public class GDL90Link extends AbstractLink
         }
 
         try {
+          ahrs.HeadingType = headingType;
           d.datagram.setData(ahrs.toBytes());
         } catch (Exception e) {
           // TODO Auto-generated catch block

@@ -54,7 +54,7 @@ public class AHRS {
   public int IndicatedAirspeed;
   public int TrueAirspeed;
 
-  public AHRSHeading HeadingSource;
+  public AHRSHeadingType HeadingType;
 
   public byte[] toBytes() throws Exception {
 
@@ -80,16 +80,25 @@ public class AHRS {
     //    0x01C2 = 450
     //    int packedHeading = packDegrees(45);
 
-    //        Get this "true" from TrueHeading on YAML.
-    if (true) {
-      //        packedHeading = (packedHeading | (1 << 15));
-      //      packedHeading = packedHeading & 0xfffe;
-      //      packedHeading = packedHeading | ~0x8000;
-      packedHeading = packedHeading | ~(1 << 15);
-    }
-
     byte[] packedHeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
-    messageStream.write(packedHeadingBytes[2]);
+
+    byte iaByte = packedHeadingBytes[1];
+
+    switch (HeadingType) {
+      case MAGNETIC:
+        //      packedHeading = packedHeading | (1 << 15);
+        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x01, 1);
+
+        break;
+      case TRUE_HEADING:
+        //      packedHeading = packedHeading | ~(1 << 15);
+        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x00, 1);
+
+        break;
+      default:
+        break;
+    }
+    messageStream.write(iaByte);
     messageStream.write(packedHeadingBytes[3]);
 
     byte[] IndicatedAirspeedBytes = ByteBuffer.allocate(4).putInt(IndicatedAirspeed).array();
