@@ -576,19 +576,23 @@ public class GDL90Link extends AbstractLink
     }
     switch (source) {
       case BINARY:
-        initBINARYMode();
+        {
+          initBINARYMode();
+        }
+
         break;
       case PV:
-        initPVMode();
+        {
+          initPVMode();
+          if (!realtime) {
+            log.info("Starting new processor '{}'", processor.getName());
+            processor.startAsync();
+            processor.awaitRunning();
+          }
+        }
         break;
       default:
         break;
-    }
-
-    if (!realtime) {
-      log.info("Starting new processor '{}'", processor.getName());
-      processor.startAsync();
-      processor.awaitRunning();
     }
     notifyStarted();
   }
