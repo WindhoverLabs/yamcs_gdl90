@@ -113,6 +113,7 @@ public class GDL90Link extends AbstractLink
     boolean alive;
     int keepAliveSeconds;
     Instant lastBroadcastTime;
+    boolean blackListed;
 
     AHRSMode ahrsMode;
 
@@ -122,13 +123,15 @@ public class GDL90Link extends AbstractLink
         DatagramPacket newDatagram,
         boolean newAlive,
         int newKeepAliveSeconds,
-        Instant newLastBradcastTime) {
+        Instant newLastBradcastTime,
+        boolean isBlackListed) {
       this.host = newHost;
       this.port = newPort;
       this.datagram = newDatagram;
       this.alive = newAlive;
       this.keepAliveSeconds = newKeepAliveSeconds;
       this.lastBroadcastTime = newLastBradcastTime;
+      this.blackListed = isBlackListed;
     }
 
     public String toString() {
@@ -262,19 +265,22 @@ public class GDL90Link extends AbstractLink
       if (this.getConfig().containsKey("gdl90Devices")) {
         List<Map<String, Object>> devices = this.getConfig().getList("gdl90Devices");
         for (Map<String, Object> d : devices) {
-          gdl90Devices.put(
-              d.get("gdl90_host").toString(),
-              new GDL90Device(
-                  d.get("gdl90_host").toString(),
-                  d.get("gdl90_port").toString(),
-                  new DatagramPacket(
-                      new byte[MAX_LENGTH],
-                      MAX_LENGTH,
-                      InetAddress.getByName(d.get("gdl90_host").toString()),
-                      Integer.parseInt(d.get("gdl90_port").toString())),
-                  true,
-                  keepAliveConfig,
-                  Instant.now()));
+          {
+            gdl90Devices.put(
+                d.get("gdl90_host").toString(),
+                new GDL90Device(
+                    d.get("gdl90_host").toString(),
+                    d.get("gdl90_port").toString(),
+                    new DatagramPacket(
+                        new byte[MAX_LENGTH],
+                        MAX_LENGTH,
+                        InetAddress.getByName(d.get("gdl90_host").toString()),
+                        Integer.parseInt(d.get("gdl90_port").toString())),
+                    true,
+                    keepAliveConfig,
+                    Instant.now(),
+                    ((boolean) d.getOrDefault("blackListed", false))));
+          }
         }
       }
 
@@ -632,7 +638,8 @@ public class GDL90Link extends AbstractLink
                       Integer.parseInt(Integer.toString(ffJSON.GDL90.port))),
                   true,
                   keepAliveConfig,
-                  Instant.now()));
+                  Instant.now(),
+                  false));
         } else {
           gdl90Devices.get(foreFlightdatagram.getAddress().getHostAddress()).lastBroadcastTime =
               Instant.now();
@@ -646,7 +653,7 @@ public class GDL90Link extends AbstractLink
 
   private synchronized void sendHeartbeat() throws IOException {
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive) {
+      if (d.alive & !d.blackListed) {
         GDL90Heartbeat beat = new GDL90Heartbeat();
         beat.GPSPosValid = true;
         beat.UATInitialized = true;
@@ -669,7 +676,7 @@ public class GDL90Link extends AbstractLink
 
   private synchronized void sendForeFlightID() throws IOException {
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive) {
+      if (d.alive & !d.blackListed) {
 
         ForeFlightIDMessage id = new ForeFlightIDMessage();
 
@@ -702,7 +709,7 @@ public class GDL90Link extends AbstractLink
   private synchronized void sendOwnshipReport() throws IOException {
 
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive) {
+      if (d.alive & !d.blackListed) {
 
         com.windhoverlabs.yamcs.gdl90.OwnshipReport ownship =
             new com.windhoverlabs.yamcs.gdl90.OwnshipReport();
@@ -889,7 +896,7 @@ public class GDL90Link extends AbstractLink
 
     for (GDL90Device d : gdl90Devices.values()) {
 
-      if (d.alive) {
+      if (d.alive & !d.blackListed) {
 
         AHRS ahrs = new AHRS();
 
@@ -1041,7 +1048,7 @@ public class GDL90Link extends AbstractLink
   private synchronized void sendOwnshipGeoAltitude() throws IOException {
 
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive) {
+      if (d.alive & !d.blackListed) {
 
         com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude geoAlt =
             new com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude();
@@ -1308,7 +1315,7 @@ public class GDL90Link extends AbstractLink
     }
 
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive) {
+      if (d.alive & !d.blackListed) {
 
         for (ArrayList<Byte> msg : allMessages) {
           ByteBuffer msgBuffer = ByteBuffer.allocate(msg.size());
