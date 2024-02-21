@@ -71,15 +71,15 @@ dataLinks:
     DataSource: PV
     1HZ_Messages: [0x098b]
     5HZ_Messages: [0x098d]
-    # gdl90Devices:
-    #   # - gdl90_host: "172.16.100.93"
-    #   #   gdl90_port: 4000
-    #   # - gdl90_host: "172.16.100.132"
-    #   #   gdl90_port: 4000
-    #   - gdl90_host: "172.16.100.68"
-    #     gdl90_port: 4000
-    # yamcsHost: http://127.0.0.1
-    # yamcsPort: 8090
+    gdl90Devices:
+      # - gdl90_host: "172.16.100.93"
+      #   gdl90_port: 4000
+        # - gdl90_host: "172.16.100.132"
+        #   gdl90_port: 4000
+        #   blackListed: true
+      - gdl90_host: "192.168.243.97"
+        gdl90_port: 4000
+        blackListed: false
     pvMap:
       Altitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Alt"
       Latitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lat"
