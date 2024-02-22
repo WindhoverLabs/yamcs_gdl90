@@ -53,6 +53,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -106,6 +107,32 @@ public class GDL90Link extends AbstractLink
         ConnectionListener,
         StreamSubscriber {
 
+  class HostPortPair {
+    String host;
+    String port;
+
+    public HostPortPair(String newHost, String newPort) {
+      this.host = newHost;
+      this.port = newPort;
+    }
+
+    @Override
+    public boolean equals(Object otherPair) {
+      if (!(otherPair instanceof HostPortPair)) {
+        return false;
+      } else {
+        HostPortPair other = (HostPortPair) otherPair;
+        return other.host.equals(this.host) && other.port.equals(this.port);
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      //    	Substract hashes so that order matters
+      return this.host.hashCode() - this.port.hashCode();
+    }
+  }
+
   class GDL90Device {
     String host;
     String port;
@@ -154,8 +181,9 @@ public class GDL90Link extends AbstractLink
   private Parameter outOfSyncParam;
   private Parameter streamEventCountParam;
   private Parameter logEventCountParam;
-
   private Parameter devicesParam;
+  private Parameter blackListParam;
+
   private int streamEventCount;
   private int logEventCount;
 
@@ -243,6 +271,8 @@ public class GDL90Link extends AbstractLink
   ConcurrentHashMap<String, GDL90Device> gdl90Devices =
       new ConcurrentHashMap<String, GDL90Device>();
 
+  HashMap<HostPortPair, GDL90Device> blackList = new HashMap<HostPortPair, GDL90Device>();
+
   private String start;
   private String stop;
   private Timestamp startTimeStamp;
@@ -276,8 +306,8 @@ public class GDL90Link extends AbstractLink
         List<Map<String, Object>> devices = this.getConfig().getList("gdl90Devices");
         for (Map<String, Object> d : devices) {
           {
-            gdl90Devices.put(
-                d.get("gdl90_host").toString(),
+            boolean blackListed = ((boolean) d.getOrDefault("blackListed", false));
+            GDL90Device newDevice =
                 new GDL90Device(
                     d.get("gdl90_host").toString(),
                     d.get("gdl90_port").toString(),
@@ -289,7 +319,14 @@ public class GDL90Link extends AbstractLink
                     true,
                     keepAliveConfig,
                     Instant.now(),
-                    ((boolean) d.getOrDefault("blackListed", false))));
+                    blackListed);
+            if (newDevice.blackListed) {
+              HostPortPair newPair =
+                  new HostPortPair(d.get("gdl90_host").toString(), d.get("gdl90_port").toString());
+              blackList.put(newPair, newDevice);
+            }
+
+            gdl90Devices.put(d.get("gdl90_host").toString(), newDevice);
           }
         }
       }
@@ -653,7 +690,10 @@ public class GDL90Link extends AbstractLink
                   true,
                   keepAliveConfig,
                   Instant.now(),
-                  false));
+                  isBlackListed(
+                      new HostPortPair(
+                          foreFlightdatagram.getAddress().getHostAddress(),
+                          Integer.toString(ffJSON.GDL90.port)))));
         } else {
           gdl90Devices.get(foreFlightdatagram.getAddress().getHostAddress()).lastBroadcastTime =
               Instant.now();
@@ -667,7 +707,7 @@ public class GDL90Link extends AbstractLink
 
   private synchronized void sendHeartbeat() throws IOException {
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive & !d.blackListed) {
+      if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
         GDL90Heartbeat beat = new GDL90Heartbeat();
         beat.GPSPosValid = true;
         beat.UATInitialized = true;
@@ -690,7 +730,7 @@ public class GDL90Link extends AbstractLink
 
   private synchronized void sendForeFlightID() throws IOException {
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive & !d.blackListed) {
+      if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
 
         ForeFlightIDMessage id = new ForeFlightIDMessage();
 
@@ -723,7 +763,7 @@ public class GDL90Link extends AbstractLink
   private synchronized void sendOwnshipReport() throws IOException {
 
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive & !d.blackListed) {
+      if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
 
         com.windhoverlabs.yamcs.gdl90.OwnshipReport ownship =
             new com.windhoverlabs.yamcs.gdl90.OwnshipReport();
@@ -910,7 +950,7 @@ public class GDL90Link extends AbstractLink
 
     for (GDL90Device d : gdl90Devices.values()) {
 
-      if (d.alive & !d.blackListed) {
+      if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
 
         AHRS ahrs = new AHRS();
 
@@ -1062,7 +1102,7 @@ public class GDL90Link extends AbstractLink
   private synchronized void sendOwnshipGeoAltitude() throws IOException {
 
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive & !d.blackListed) {
+      if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
 
         com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude geoAlt =
             new com.windhoverlabs.yamcs.gdl90.OwnshipGeoAltitude();
@@ -1158,6 +1198,10 @@ public class GDL90Link extends AbstractLink
             linkName + "/GDL90Devices",
             Yamcs.Value.Type.STRING,
             "Current gdl90 devices and status");
+
+    blackListParam =
+        sysParamCollector.createSystemParameter(
+            linkName + "/Blacklist", Yamcs.Value.Type.STRING, "Blacklisted gdl90 devices");
   }
 
   @Override
@@ -1180,6 +1224,7 @@ public class GDL90Link extends AbstractLink
     list.add(SystemParametersService.getPV(streamEventCountParam, time, streamEventCount));
     list.add(SystemParametersService.getPV(logEventCountParam, time, logEventCount));
     list.add(SystemParametersService.getPV(devicesParam, time, gdl90Devices.toString()));
+    list.add(SystemParametersService.getPV(blackListParam, time, blackList.toString()));
   }
 
   @Override
@@ -1336,7 +1381,7 @@ public class GDL90Link extends AbstractLink
     }
 
     for (GDL90Device d : gdl90Devices.values()) {
-      if (d.alive & !d.blackListed) {
+      if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
 
         for (ArrayList<Byte> msg : allMessages) {
           ByteBuffer msgBuffer = ByteBuffer.allocate(msg.size());
@@ -1408,5 +1453,9 @@ public class GDL90Link extends AbstractLink
 
   private double mpsToKnots(float mps) {
     return ((1.943844) * (mps));
+  }
+
+  private boolean isBlackListed(HostPortPair p) {
+    return blackList.containsKey(p);
   }
 }
