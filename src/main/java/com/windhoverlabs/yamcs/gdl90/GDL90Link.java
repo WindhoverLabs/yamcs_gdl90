@@ -135,7 +135,15 @@ public class GDL90Link extends AbstractLink
     }
 
     public String toString() {
-      return "Host:" + this.host + ", Port:" + this.port + ", Sending:" + this.alive;
+      return "\"Host:"
+          + this.host
+          + ", Port:"
+          + this.port
+          + ", Alive:"
+          + this.alive
+          + ", BlackListed:"
+          + this.blackListed
+          + "\"";
     }
   }
   /* Configuration Defaults */
@@ -146,6 +154,8 @@ public class GDL90Link extends AbstractLink
   private Parameter outOfSyncParam;
   private Parameter streamEventCountParam;
   private Parameter logEventCountParam;
+
+  private Parameter devicesParam;
   private int streamEventCount;
   private int logEventCount;
 
@@ -732,7 +742,7 @@ public class GDL90Link extends AbstractLink
         ownship.Latitude = 44.90708;
         ownship.Longitude = -122.99488;
         //        TODO: Should be used for AHRS heading bit
-        ownship.TrueHeading = this.config.getBoolean("TrueHeading");
+        ownship.TrueHeading = this.config.getBoolean("TrueHeading", true);
 
         org.yamcs.protobuf.Pvalue.ParameterValue pvLatitude = paramsToSend.get("Latitude");
 
@@ -1142,6 +1152,12 @@ public class GDL90Link extends AbstractLink
             linkName + "/logEventCountParam",
             Yamcs.Value.Type.UINT64,
             "Event count from log files");
+
+    devicesParam =
+        sysParamCollector.createSystemParameter(
+            linkName + "/GDL90Devices",
+            Yamcs.Value.Type.STRING,
+            "Current gdl90 devices and status");
   }
 
   @Override
@@ -1163,6 +1179,7 @@ public class GDL90Link extends AbstractLink
     list.add(SystemParametersService.getPV(outOfSyncParam, time, outOfSync));
     list.add(SystemParametersService.getPV(streamEventCountParam, time, streamEventCount));
     list.add(SystemParametersService.getPV(logEventCountParam, time, logEventCount));
+    list.add(SystemParametersService.getPV(devicesParam, time, gdl90Devices.toString()));
   }
 
   @Override
