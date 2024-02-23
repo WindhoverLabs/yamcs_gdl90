@@ -84,13 +84,14 @@ public class AHRS {
 
     byte iaByte = packedHeadingBytes[1];
 
+    //    NOTE:It seems that the ForeFlight Docs have these definitions flipped
     switch (HeadingType) {
-      case MAGNETIC:
+      case TRUE_HEADING:
         //      packedHeading = packedHeading | (1 << 15);
         iaByte = (byte) setNibble(packedHeadingBytes[2], 0x01, 1);
 
         break;
-      case TRUE_HEADING:
+      case MAGNETIC:
         //      packedHeading = packedHeading | ~(1 << 15);
         iaByte = (byte) setNibble(packedHeadingBytes[2], 0x00, 1);
 
