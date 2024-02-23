@@ -280,6 +280,11 @@ public class GDL90Link extends AbstractLink
 
   private boolean realtime;
 
+  private int heartbeatRate;
+  private int ownShipReportRate;
+  private int ownShipGeoAltitudeRate;
+  private int AHRSRate;
+
   static {
     gftdef = new TupleDefinition();
     gftdef.addColumn(new ColumnDefinition(RECTIME_CNAME, DataType.TIMESTAMP));
@@ -441,13 +446,65 @@ public class GDL90Link extends AbstractLink
 
   /** Method only relevant when in PV mode */
   private void initGDL90Timers() {
+    //	  Defaults are based on
+    // spec:https://www.faa.gov/sites/faa.gov/files/air_traffic/technology/adsb/archival/GDL90_Public_ICD_RevA.PDF,
+    //	  https://www.foreflight.com/connect/spec/
+    heartbeatRate = this.config.getInt("heartbeatRate", 1);
+    ownShipReportRate = this.config.getInt("ownShipReportRate", 1);
+    ownShipGeoAltitudeRate = this.config.getInt("ownShipGeoAltitudeRate", 1);
+    AHRSRate = this.config.getInt("AHRSRate", 5);
     scheduler.scheduleAtFixedRate(
         () -> {
           if (isRunningAndEnabled()) {
             try {
               sendHeartbeat();
+
+            } catch (IOException e) {
+              // TODO Auto-generated catch block
+              e.printStackTrace();
+            }
+          }
+        },
+        100,
+        1000 / heartbeatRate,
+        TimeUnit.MILLISECONDS);
+
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (isRunningAndEnabled()) {
+            try {
               sendOwnshipReport();
+
+            } catch (IOException e) {
+              // TODO Auto-generated catch block
+              e.printStackTrace();
+            }
+          }
+        },
+        100,
+        1000 / ownShipReportRate,
+        TimeUnit.MILLISECONDS);
+
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (isRunningAndEnabled()) {
+            try {
               sendOwnshipGeoAltitude();
+
+            } catch (IOException e) {
+              // TODO Auto-generated catch block
+              e.printStackTrace();
+            }
+          }
+        },
+        100,
+        1000 / ownShipGeoAltitudeRate,
+        TimeUnit.MILLISECONDS);
+
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (isRunningAndEnabled()) {
+            try {
               sendForeFlightID();
 
             } catch (IOException e) {
@@ -472,7 +529,7 @@ public class GDL90Link extends AbstractLink
           }
         },
         100,
-        200,
+        1000 / AHRSRate,
         TimeUnit.MILLISECONDS);
   }
 
