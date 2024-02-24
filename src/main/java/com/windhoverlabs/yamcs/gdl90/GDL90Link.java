@@ -133,6 +133,22 @@ public class GDL90Link extends AbstractLink
     }
   }
 
+  class QT {
+    float Qt_0, Qt_1, Qt_2, Qt_3;
+  }
+
+  class YPR {
+    float yaw, pitch, roll;
+  }
+
+  class Matrix3F3 {
+    float data[][];
+
+    public Matrix3F3() {
+      data = new float[3][3];
+    }
+  }
+
   class GDL90Device {
     String host;
     String port;
@@ -172,6 +188,11 @@ public class GDL90Link extends AbstractLink
           + this.blackListed
           + "\"";
     }
+  }
+
+  enum AHRS_MODE {
+    YPR,
+    QT
   }
   /* Configuration Defaults */
   private static TupleDefinition gftdef;
@@ -285,6 +306,8 @@ public class GDL90Link extends AbstractLink
   private int ownShipGeoAltitudeRate;
   private int AHRSRate;
 
+  private AHRS_MODE ahrsMode;
+
   static {
     gftdef = new TupleDefinition();
     gftdef.addColumn(new ColumnDefinition(RECTIME_CNAME, DataType.TIMESTAMP));
@@ -374,7 +397,8 @@ public class GDL90Link extends AbstractLink
     yamcsHost = this.getConfig().getString("yamcsHost", "http://localhost");
     yamcsPort = this.getConfig().getInt("yamcsPort", 8090);
 
-    pvMap = new ConcurrentHashMap<String, String>(this.config.getMap("pvMap"));
+    pvMap =
+        new ConcurrentHashMap<String, String>((Map) this.config.getMap("pvConfig").get("pvMap"));
 
     realtime = this.config.getBoolean("realtime", true);
 
@@ -386,6 +410,10 @@ public class GDL90Link extends AbstractLink
         this.getConfig().getString("AHRSHeadingType", AHRSHeadingType.TRUE_HEADING.toString());
 
     headingType = AHRSHeadingType.valueOf(headingString);
+
+    String ahrsModeString = this.getConfig().getString("AHRS_Mode", AHRS_MODE.QT.toString());
+
+    ahrsMode = AHRS_MODE.valueOf(ahrsModeString);
 
     if (!this.realtime) {
       processorName = this.config.getString("processorName", "GDL90LinkReplay");
@@ -1013,6 +1041,15 @@ public class GDL90Link extends AbstractLink
 
         org.yamcs.protobuf.Pvalue.ParameterValue pvRoll = paramsToSend.get("Roll");
 
+        switch (ahrsMode) {
+          case QT:
+            break;
+          case YPR:
+            break;
+          default:
+            break;
+        }
+
         if (pvRoll != null) {
           switch (pvRoll.getEngValue().getType()) {
             case AGGREGATE:
@@ -1024,12 +1061,12 @@ public class GDL90Link extends AbstractLink
             case BOOLEAN:
               break;
             case DOUBLE:
-              ahrs.Roll = (int) pvRoll.getEngValue().getDoubleValue();
+              ahrs.Roll = pvRoll.getEngValue().getDoubleValue();
               break;
             case ENUMERATED:
               break;
             case FLOAT:
-              ahrs.Roll = (int) pvRoll.getEngValue().getFloatValue();
+              ahrs.Roll = pvRoll.getEngValue().getFloatValue();
               break;
             case NONE:
               break;
@@ -1063,12 +1100,12 @@ public class GDL90Link extends AbstractLink
             case BOOLEAN:
               break;
             case DOUBLE:
-              ahrs.Pitch = (int) pvPitch.getEngValue().getDoubleValue();
+              ahrs.Pitch = pvPitch.getEngValue().getDoubleValue();
               break;
             case ENUMERATED:
               break;
             case FLOAT:
-              ahrs.Pitch = (int) pvPitch.getEngValue().getFloatValue();
+              ahrs.Pitch = pvPitch.getEngValue().getFloatValue();
               break;
             case NONE:
               break;
@@ -1514,5 +1551,20 @@ public class GDL90Link extends AbstractLink
 
   private boolean isBlackListed(HostPortPair p) {
     return blackList.containsKey(p);
+  }
+
+  private YPR qtToYPR(QT qt) {
+
+    //	    math::Quaternion q_att(CVT.VAtt.Q[0], CVT.VAtt.Q[1], CVT.VAtt.Q[2], CVT.VAtt.Q[3]);
+    //	    math::Matrix3F3 _R = q_att.RotationMatrix();
+    //
+    //	    math::Vector3F euler_angles;
+    //	    euler_angles = _R.ToEuler();
+    //
+    //		float _roll = euler_angles[0];
+    YPR ypr = new YPR();
+    //	  QT
+
+    return ypr;
   }
 }

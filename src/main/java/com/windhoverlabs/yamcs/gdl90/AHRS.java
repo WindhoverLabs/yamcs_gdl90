@@ -33,6 +33,7 @@
 
 package com.windhoverlabs.yamcs.gdl90;
 
+import com.windhoverlabs.yamcs.gdl90.GDL90Link.AHRS_MODE;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
@@ -48,13 +49,15 @@ public class AHRS {
   byte FlagByte = 0x7E;
   public static final byte MessageID = 0x65;
   public static final byte AHRSSubMessageID = 0x01;
-  public int Roll;
-  public int Pitch;
+  public double Roll;
+  public double Pitch;
   public int Heading;
   public int IndicatedAirspeed;
   public int TrueAirspeed;
 
   public AHRSHeadingType HeadingType;
+
+  public AHRS_MODE ahrsMode;
 
   public byte[] toBytes() throws Exception {
 
@@ -75,30 +78,31 @@ public class AHRS {
     messageStream.write(packedPitchBytes[2]);
     messageStream.write(packedPitchBytes[3]);
 
-    int packedHeading = packDegrees(Heading);
+    //    Heading = -80;
+    int packedHeading = packDegrees(FFB_PackForeFlightHeading((Heading)));
 
     //    0x01C2 = 450
     //    int packedHeading = packDegrees(45);
 
     byte[] packedHeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
 
-    byte iaByte = packedHeadingBytes[1];
+    byte iaByte = packedHeadingBytes[2];
 
-    //    NOTE:It seems that the ForeFlight Docs have these definitions flipped
-    switch (HeadingType) {
-      case TRUE_HEADING:
-        //      packedHeading = packedHeading | (1 << 15);
-        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x01, 1);
-
-        break;
-      case MAGNETIC:
-        //      packedHeading = packedHeading | ~(1 << 15);
-        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x00, 1);
-
-        break;
-      default:
-        break;
-    }
+    //        NOTE:It seems that the ForeFlight Docs have these definitions flipped
+    //    switch (HeadingType) {
+    //      case TRUE_HEADING:
+    //        //      packedHeading = packedHeading | (1 << 15);
+    //        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x01, 1);
+    //
+    //        break;
+    //      case MAGNETIC:
+    //        //      packedHeading = packedHeading | ~(1 << 15);
+    //        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x00, 1);
+    //
+    //        break;
+    //      default:
+    //        break;
+    //    }
     messageStream.write(iaByte);
     messageStream.write(packedHeadingBytes[3]);
 
@@ -156,7 +160,24 @@ public class AHRS {
     return (int) ((1000 + altFt) / 25);
   }
 
-  public int packDegrees(int deg) {
-    return ((deg * 10));
+  //  public int packDegrees(double deg) {
+  //    int tenth = ((int) ((deg % ((int) deg)) * 10));
+  //    return ((int) ((deg * 10)) + tenth);
+  //  }
+
+  public int packDegrees(double deg) {
+    return ((int) ((deg * 10)));
+  }
+
+  public int FFB_PackForeFlightHeading(float heading) {
+
+    // Connvert heading of [-180, 180] to [-360,360]
+    float PackedHeading = heading;
+    if (heading < 0) {
+      PackedHeading = 360 + heading;
+    } else {
+      PackedHeading = heading;
+    }
+    return (int) (PackedHeading);
   }
 }
