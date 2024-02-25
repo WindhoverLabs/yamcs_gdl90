@@ -133,19 +133,78 @@ public class GDL90Link extends AbstractLink
     }
   }
 
-  class QT {
-    float Qt_0, Qt_1, Qt_2, Qt_3;
+  class Vector3F {
+    double data[];
+
+    public Vector3F() {
+      data = new double[3];
+    }
+  }
+
+  class Vector4F {
+    double data[];
+
+    public Vector4F() {
+      data = new double[4];
+    }
+  }
+
+  class QT extends Vector4F {
+
+    public QT() {
+      super();
+    }
+
+    Matrix3F3 RotationMatrix() {
+      Matrix3F3 R = new Matrix3F3();
+      double aSq = data[0] * data[0];
+      double bSq = data[1] * data[1];
+      double cSq = data[2] * data[2];
+      double dSq = data[3] * data[3];
+      R.data[0][0] = aSq + bSq - cSq - dSq;
+      R.data[0][1] = 2.0f * (data[1] * data[2] - data[0] * data[3]);
+      R.data[0][2] = 2.0f * (data[0] * data[2] + data[1] * data[3]);
+      R.data[1][0] = 2.0f * (data[1] * data[2] + data[0] * data[3]);
+      R.data[1][1] = aSq - bSq + cSq - dSq;
+      R.data[1][2] = 2.0f * (data[2] * data[3] - data[0] * data[1]);
+      R.data[2][0] = 2.0f * (data[1] * data[3] - data[0] * data[2]);
+      R.data[2][1] = 2.0f * (data[0] * data[1] + data[2] * data[3]);
+      R.data[2][2] = aSq - bSq - cSq + dSq;
+      return R;
+    }
   }
 
   class YPR {
-    float yaw, pitch, roll;
+    double yaw, pitch, roll;
   }
 
   class Matrix3F3 {
-    float data[][];
+    double data[][];
 
     public Matrix3F3() {
-      data = new float[3][3];
+      data = new double[3][3];
+    }
+
+    Vector3F ToEuler() {
+      Vector3F euler = new Vector3F();
+      euler.data[1] = Math.asin(-data[2][0]);
+
+      if (Math.abs(euler.data[1] - Math.PI / 2) < 1.0e-3f) {
+        euler.data[0] = 0.0f;
+        euler.data[2] =
+            Math.atan2(data[1][2] - data[0][1], data[0][2] + data[1][1]) + euler.data[0];
+
+      } else if (Math.abs(euler.data[1] + Math.PI / 2) < 1.0e-3f) {
+        euler.data[0] = 0.0f;
+        euler.data[2] =
+            Math.atan2(data[1][2] - data[0][1], data[0][2] + data[1][1]) - euler.data[0];
+
+      } else {
+        euler.data[0] = Math.atan2(data[2][1], data[2][2]);
+        euler.data[2] = Math.atan2(data[1][0], data[0][0]);
+      }
+
+      return euler;
     }
   }
 
@@ -411,7 +470,7 @@ public class GDL90Link extends AbstractLink
 
     headingType = AHRSHeadingType.valueOf(headingString);
 
-    String ahrsModeString = this.getConfig().getString("AHRS_Mode", AHRS_MODE.QT.toString());
+    String ahrsModeString = (String) this.config.getMap("pvConfig").get("AHRS_Mode");
 
     ahrsMode = AHRS_MODE.valueOf(ahrsModeString);
 
@@ -1032,141 +1091,11 @@ public class GDL90Link extends AbstractLink
   }
 
   private synchronized void AHRSMessage() throws IOException {
-
+    AHRS ahrs = newAHRS();
     for (GDL90Device d : gdl90Devices.values()) {
 
       if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
-
-        AHRS ahrs = new AHRS();
-
-        org.yamcs.protobuf.Pvalue.ParameterValue pvRoll = paramsToSend.get("Roll");
-
-        switch (ahrsMode) {
-          case QT:
-            break;
-          case YPR:
-            break;
-          default:
-            break;
-        }
-
-        if (pvRoll != null) {
-          switch (pvRoll.getEngValue().getType()) {
-            case AGGREGATE:
-              break;
-            case ARRAY:
-              break;
-            case BINARY:
-              break;
-            case BOOLEAN:
-              break;
-            case DOUBLE:
-              ahrs.Roll = pvRoll.getEngValue().getDoubleValue();
-              break;
-            case ENUMERATED:
-              break;
-            case FLOAT:
-              ahrs.Roll = pvRoll.getEngValue().getFloatValue();
-              break;
-            case NONE:
-              break;
-            case SINT32:
-              break;
-            case SINT64:
-              break;
-            case STRING:
-              break;
-            case TIMESTAMP:
-              break;
-            case UINT32:
-              break;
-            case UINT64:
-              break;
-            default:
-              break;
-          }
-        }
-
-        org.yamcs.protobuf.Pvalue.ParameterValue pvPitch = paramsToSend.get("Pitch");
-
-        if (pvPitch != null) {
-          switch (pvPitch.getEngValue().getType()) {
-            case AGGREGATE:
-              break;
-            case ARRAY:
-              break;
-            case BINARY:
-              break;
-            case BOOLEAN:
-              break;
-            case DOUBLE:
-              ahrs.Pitch = pvPitch.getEngValue().getDoubleValue();
-              break;
-            case ENUMERATED:
-              break;
-            case FLOAT:
-              ahrs.Pitch = pvPitch.getEngValue().getFloatValue();
-              break;
-            case NONE:
-              break;
-            case SINT32:
-              break;
-            case SINT64:
-              break;
-            case STRING:
-              break;
-            case TIMESTAMP:
-              break;
-            case UINT32:
-              break;
-            case UINT64:
-              break;
-            default:
-              break;
-          }
-        }
-
-        org.yamcs.protobuf.Pvalue.ParameterValue pvAHRS_Heading = paramsToSend.get("AHRS_Heading");
-
-        if (pvAHRS_Heading != null) {
-          switch (pvAHRS_Heading.getEngValue().getType()) {
-            case AGGREGATE:
-              break;
-            case ARRAY:
-              break;
-            case BINARY:
-              break;
-            case BOOLEAN:
-              break;
-            case DOUBLE:
-              ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getDoubleValue();
-              break;
-            case ENUMERATED:
-              break;
-            case FLOAT:
-              ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getFloatValue();
-              break;
-            case NONE:
-              break;
-            case SINT32:
-              break;
-            case SINT64:
-              break;
-            case STRING:
-              break;
-            case TIMESTAMP:
-              break;
-            case UINT32:
-              break;
-            case UINT64:
-              break;
-            default:
-              break;
-          }
-        }
-
         try {
-          ahrs.HeadingType = headingType;
           d.datagram.setData(ahrs.toBytes());
         } catch (Exception e) {
           // TODO Auto-generated catch block
@@ -1176,6 +1105,226 @@ public class GDL90Link extends AbstractLink
         reportAHRS(d.datagram.getData());
       }
     }
+  }
+
+  private AHRS newAHRS() {
+    AHRS ahrs = new AHRS();
+    getYPR(ahrs);
+
+    ahrs.HeadingType = headingType;
+    return ahrs;
+  }
+
+  private void getYPR(AHRS ahrs) {
+    switch (ahrsMode) {
+      case QT:
+        calcQT(ahrs);
+        break;
+      case YPR:
+        calcYPR(ahrs);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private void calcYPR(AHRS ahrs) {
+    org.yamcs.protobuf.Pvalue.ParameterValue pvRoll = paramsToSend.get("Roll");
+
+    if (pvRoll != null) {
+      switch (pvRoll.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Roll = pvRoll.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Roll = pvRoll.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvPitch = paramsToSend.get("Pitch");
+
+    if (pvPitch != null) {
+      switch (pvPitch.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Pitch = pvPitch.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Pitch = pvPitch.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvAHRS_Heading = paramsToSend.get("AHRS_Heading");
+
+    if (pvAHRS_Heading != null) {
+      switch (pvAHRS_Heading.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  private void calcQT(AHRS ahrs) {
+    org.yamcs.protobuf.Pvalue.ParameterValue qt = paramsToSend.get("Qt");
+    QT newQT = new QT();
+    if (qt != null) {
+      switch (qt.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          java.util.List<org.yamcs.protobuf.Yamcs.Value> l = qt.getEngValue().getArrayValueList();
+          for (int i = 0; i < l.size(); i++) {
+            switch (l.get(i).getType()) {
+              case AGGREGATE:
+                break;
+              case ARRAY:
+                break;
+              case BINARY:
+                break;
+              case BOOLEAN:
+                break;
+              case DOUBLE:
+                newQT.data[i] = l.get(i).getDoubleValue();
+                break;
+              case ENUMERATED:
+                break;
+              case FLOAT:
+                newQT.data[i] = l.get(i).getFloatValue();
+              case NONE:
+                break;
+              case SINT32:
+                break;
+              case SINT64:
+                break;
+              case STRING:
+                break;
+              case TIMESTAMP:
+                break;
+              case UINT32:
+                break;
+              case UINT64:
+                break;
+              default:
+                break;
+            }
+          }
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    YPR newYPR = qtToYPR(newQT);
+    ahrs.Heading = newYPR.yaw;
+    ahrs.Pitch = newYPR.pitch;
+    ahrs.Roll = newYPR.roll;
   }
 
   public void reportAHRS(byte[] d) {
@@ -1554,16 +1703,14 @@ public class GDL90Link extends AbstractLink
   }
 
   private YPR qtToYPR(QT qt) {
-
-    //	    math::Quaternion q_att(CVT.VAtt.Q[0], CVT.VAtt.Q[1], CVT.VAtt.Q[2], CVT.VAtt.Q[3]);
-    //	    math::Matrix3F3 _R = q_att.RotationMatrix();
-    //
-    //	    math::Vector3F euler_angles;
-    //	    euler_angles = _R.ToEuler();
-    //
-    //		float _roll = euler_angles[0];
     YPR ypr = new YPR();
-    //	  QT
+    Matrix3F3 _R = qt.RotationMatrix();
+    Vector3F euler_angles = new Vector3F();
+    euler_angles = _R.ToEuler();
+
+    ypr.roll = Math.toDegrees(euler_angles.data[0]);
+    ypr.pitch = Math.toDegrees(euler_angles.data[1]);
+    ypr.yaw = Math.toDegrees((euler_angles.data[2]));
 
     return ypr;
   }

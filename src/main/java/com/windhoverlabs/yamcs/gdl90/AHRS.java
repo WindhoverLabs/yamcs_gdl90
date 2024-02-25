@@ -51,7 +51,7 @@ public class AHRS {
   public static final byte AHRSSubMessageID = 0x01;
   public double Roll;
   public double Pitch;
-  public int Heading;
+  public double Heading;
   public int IndicatedAirspeed;
   public int TrueAirspeed;
 
@@ -169,10 +169,10 @@ public class AHRS {
     return ((int) ((deg * 10)));
   }
 
-  public int FFB_PackForeFlightHeading(float heading) {
+  public int FFB_PackForeFlightHeading(double heading) {
 
     // Connvert heading of [-180, 180] to [-360,360]
-    float PackedHeading = heading;
+    double PackedHeading = heading;
     if (heading < 0) {
       PackedHeading = 360 + heading;
     } else {
