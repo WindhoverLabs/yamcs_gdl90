@@ -1220,12 +1220,12 @@ public class GDL90Link extends AbstractLink
         case BOOLEAN:
           break;
         case DOUBLE:
-          ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getDoubleValue();
+          ahrs.Heading = pvAHRS_Heading.getEngValue().getDoubleValue();
           break;
         case ENUMERATED:
           break;
         case FLOAT:
-          ahrs.Heading = (int) pvAHRS_Heading.getEngValue().getFloatValue();
+          ahrs.Heading = pvAHRS_Heading.getEngValue().getFloatValue();
           break;
         case NONE:
           break;

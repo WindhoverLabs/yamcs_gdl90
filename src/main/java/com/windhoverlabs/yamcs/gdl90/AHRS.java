@@ -160,16 +160,16 @@ public class AHRS {
     return (int) ((1000 + altFt) / 25);
   }
 
-  //  public int packDegrees(double deg) {
-  //    int tenth = ((int) ((deg % ((int) deg)) * 10));
-  //    return ((int) ((deg * 10)) + tenth);
-  //  }
-
   public int packDegrees(double deg) {
-    return ((int) ((deg * 10)));
+    int tenth = ((int) ((deg % ((int) deg)) * 10));
+    return ((int) ((deg * 10)) + tenth);
   }
 
-  public int FFB_PackForeFlightHeading(double heading) {
+  //  public int packDegrees(double deg) {
+  //    return ((int) ((deg * 10)));
+  //  }
+
+  public double FFB_PackForeFlightHeading(double heading) {
 
     // Connvert heading of [-180, 180] to [-360,360]
     double PackedHeading = heading;
@@ -178,6 +178,6 @@ public class AHRS {
     } else {
       PackedHeading = heading;
     }
-    return (int) (PackedHeading);
+    return (PackedHeading);
   }
 }
