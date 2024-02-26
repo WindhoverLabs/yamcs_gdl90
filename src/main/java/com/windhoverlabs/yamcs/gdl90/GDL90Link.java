@@ -253,6 +253,11 @@ public class GDL90Link extends AbstractLink
     YPR,
     QT
   }
+
+  enum AHRS_ENCODING {
+    WHL,
+    FF
+  }
   /* Configuration Defaults */
   private static TupleDefinition gftdef;
 
@@ -308,6 +313,7 @@ public class GDL90Link extends AbstractLink
   private int ownshipGeoAltitudeCount = 0;
   private int foreFlightIDCount = 0;
   private int AHRSCount = 0;
+  private int WHLAHRSCount = 0;
   String GDL90Hostname;
 
   Integer appNameMax;
@@ -323,6 +329,9 @@ public class GDL90Link extends AbstractLink
 
   private String AHRSStreamName;
   private Stream AHRSStream;
+
+  private String WHLAHRSStreamName;
+  private Stream WHLAHRSStream;
 
   private String ForeFlightIDStreamName;
   private Stream ForeFlightIDStream;
@@ -364,8 +373,10 @@ public class GDL90Link extends AbstractLink
   private int ownShipReportRate;
   private int ownShipGeoAltitudeRate;
   private int AHRSRate;
+  private int WHLAHRSRate;
 
   private AHRS_MODE ahrsMode;
+  private AHRS_ENCODING ahrsEncoding;
 
   static {
     gftdef = new TupleDefinition();
@@ -471,7 +482,9 @@ public class GDL90Link extends AbstractLink
     headingType = AHRSHeadingType.valueOf(headingString);
 
     String ahrsModeString = (String) this.config.getMap("pvConfig").get("AHRS_Mode");
-
+    String ahrsEncodingString = (String) this.config.getMap("pvConfig").get("AHRS_ENCODING");
+    //    AHRS_ENCODING
+    //    ahrsEncoding = AHRS_ENCODING.valueOf(ahrsEncodingString);
     ahrsMode = AHRS_MODE.valueOf(ahrsModeString);
 
     if (!this.realtime) {
@@ -540,6 +553,8 @@ public class GDL90Link extends AbstractLink
     ownShipReportRate = this.config.getInt("ownShipReportRate", 1);
     ownShipGeoAltitudeRate = this.config.getInt("ownShipGeoAltitudeRate", 1);
     AHRSRate = this.config.getInt("AHRSRate", 5);
+
+    WHLAHRSRate = this.config.getInt("WHLAHRSRate", 100);
     scheduler.scheduleAtFixedRate(
         () -> {
           if (isRunningAndEnabled()) {
@@ -618,6 +633,21 @@ public class GDL90Link extends AbstractLink
         100,
         1000 / AHRSRate,
         TimeUnit.MILLISECONDS);
+
+    scheduler.scheduleAtFixedRate(
+        () -> {
+          if (isRunningAndEnabled()) {
+            try {
+              WHLAHRSMessage();
+            } catch (IOException e) {
+              // TODO Auto-generated catch block
+              e.printStackTrace();
+            }
+          }
+        },
+        100,
+        1000 / WHLAHRSRate,
+        TimeUnit.MILLISECONDS);
   }
 
   private void initStreams() {
@@ -651,6 +681,12 @@ public class GDL90Link extends AbstractLink
 
     if (AHRSStreamName != null) {
       this.AHRSStream = getStream(ydb, AHRSStreamName);
+    }
+
+    WHLAHRSStreamName = this.getConfig().getString("WHLAHRSStreamName", null);
+
+    if (WHLAHRSStreamName != null) {
+      this.WHLAHRSStream = getStream(ydb, WHLAHRSStreamName);
     }
   }
 
@@ -746,12 +782,13 @@ public class GDL90Link extends AbstractLink
       return String.format("DISABLED");
     } else {
       return String.format(
-          "OK, Sent %d heartbeats, %d OwnshipReports, %d ownShipGeoAltitude(s), %d foreFlightIDs, %d AHRS(s) ",
+          "OK, Sent %d heartbeats, %d OwnshipReports, %d ownShipGeoAltitude(s), %d foreFlightIDs, %d AHRS(s), %d WHLAHRSCount(s) ",
           heartBeatCount,
           ownShipReportCount,
           ownshipGeoAltitudeCount,
           foreFlightIDCount,
-          AHRSCount);
+          AHRSCount,
+          WHLAHRSCount);
     }
   }
 
@@ -1107,11 +1144,34 @@ public class GDL90Link extends AbstractLink
     }
   }
 
+  private synchronized void WHLAHRSMessage() throws IOException {
+    WHL_AHRS ahrs = newWHLAHRS();
+    for (GDL90Device d : gdl90Devices.values()) {
+
+      if (d.alive & !isBlackListed(new HostPortPair(d.host, d.port))) {
+        try {
+          d.datagram.setData(ahrs.toBytes());
+        } catch (Exception e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+        GDL90Socket.send(d.datagram);
+        reportWHLAHRS(d.datagram.getData());
+      }
+    }
+  }
+
   private AHRS newAHRS() {
     AHRS ahrs = new AHRS();
     getYPR(ahrs);
 
     ahrs.HeadingType = headingType;
+    return ahrs;
+  }
+
+  private WHL_AHRS newWHLAHRS() {
+    WHL_AHRS ahrs = new WHL_AHRS();
+    getYPR(ahrs);
     return ahrs;
   }
 
@@ -1128,8 +1188,259 @@ public class GDL90Link extends AbstractLink
     }
   }
 
+  private void getYPR(WHL_AHRS ahrs) {
+    switch (ahrsMode) {
+      case QT:
+        calcQT(ahrs);
+        break;
+      case YPR:
+        calcYPR(ahrs);
+        break;
+      default:
+        break;
+    }
+  }
+
   private void calcYPR(AHRS ahrs) {
     org.yamcs.protobuf.Pvalue.ParameterValue pvRoll = paramsToSend.get("Roll");
+
+    if (pvRoll != null) {
+      switch (pvRoll.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Roll = pvRoll.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Roll = pvRoll.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvPitch = paramsToSend.get("Pitch");
+
+    if (pvPitch != null) {
+      switch (pvPitch.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Pitch = pvPitch.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Pitch = pvPitch.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvAHRS_Heading = paramsToSend.get("AHRS_Heading");
+
+    if (pvAHRS_Heading != null) {
+      switch (pvAHRS_Heading.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Heading = pvAHRS_Heading.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Heading = pvAHRS_Heading.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  private void calcYPR(WHL_AHRS ahrs) {
+    org.yamcs.protobuf.Pvalue.ParameterValue pvRoll = paramsToSend.get("Roll");
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvAltitude = paramsToSend.get("Altitude");
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvLatitude = paramsToSend.get("Latitude");
+
+    if (pvLatitude != null) {
+      switch (pvLatitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Lat = pvLatitude.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Lat = pvLatitude.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvLongitude = paramsToSend.get("Longitude");
+
+    if (pvLongitude != null) {
+      switch (pvLongitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Lon = pvLongitude.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Lon = pvLongitude.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (pvAltitude != null) {
+      switch (pvAltitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          //            	Meters to feet. Should be made configurable, maybe...
+          ahrs.Alt = (pvAltitude.getEngValue().getDoubleValue() * 3.28084);
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          //            	Meters to feet. Should be made configurable, maybe...
+          ahrs.Alt = (pvAltitude.getEngValue().getFloatValue() * 3.28084);
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
 
     if (pvRoll != null) {
       switch (pvRoll.getEngValue().getType()) {
@@ -1327,6 +1638,205 @@ public class GDL90Link extends AbstractLink
     ahrs.Roll = newYPR.roll;
   }
 
+  private void calcQT(WHL_AHRS ahrs) {
+    org.yamcs.protobuf.Pvalue.ParameterValue qt = paramsToSend.get("Qt");
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvAltitude = paramsToSend.get("Altitude");
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvLatitude = paramsToSend.get("Latitude");
+
+    if (pvLatitude != null) {
+      switch (pvLatitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Lat = pvLatitude.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Lat = pvLatitude.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvLongitude = paramsToSend.get("Longitude");
+
+    if (pvLongitude != null) {
+      switch (pvLongitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          ahrs.Lon = pvLongitude.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Lon = pvLongitude.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (pvAltitude != null) {
+      switch (pvAltitude.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          //            	Meters to feet. Should be made configurable, maybe...
+          ahrs.Alt = (pvAltitude.getEngValue().getDoubleValue() * 3.28084);
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          //            	Meters to feet. Should be made configurable, maybe...
+          ahrs.Alt = (pvAltitude.getEngValue().getFloatValue() * 3.28084);
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+    QT newQT = new QT();
+    if (qt != null) {
+      switch (qt.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          java.util.List<org.yamcs.protobuf.Yamcs.Value> l = qt.getEngValue().getArrayValueList();
+          for (int i = 0; i < l.size(); i++) {
+            switch (l.get(i).getType()) {
+              case AGGREGATE:
+                break;
+              case ARRAY:
+                break;
+              case BINARY:
+                break;
+              case BOOLEAN:
+                break;
+              case DOUBLE:
+                newQT.data[i] = l.get(i).getDoubleValue();
+                break;
+              case ENUMERATED:
+                break;
+              case FLOAT:
+                newQT.data[i] = l.get(i).getFloatValue();
+              case NONE:
+                break;
+              case SINT32:
+                break;
+              case SINT64:
+                break;
+              case STRING:
+                break;
+              case TIMESTAMP:
+                break;
+              case UINT32:
+                break;
+              case UINT64:
+                break;
+              default:
+                break;
+            }
+          }
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    YPR newYPR = qtToYPR(newQT);
+    ahrs.Heading = newYPR.yaw;
+    ahrs.Pitch = newYPR.pitch;
+    ahrs.Roll = newYPR.roll;
+  }
+
   public void reportAHRS(byte[] d) {
 
     if (this.AHRSStream != null) {
@@ -1340,6 +1850,21 @@ public class GDL90Link extends AbstractLink
     }
 
     AHRSCount++;
+  }
+
+  public void reportWHLAHRS(byte[] d) {
+
+    if (this.WHLAHRSStream != null) {
+      try {
+        this.WHLAHRSStream.emitTuple(
+            new Tuple(gftdef, Arrays.asList(timeService.getMissionTime(), "WHLAHRSStream", d)));
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    }
+
+    WHLAHRSCount++;
   }
 
   private synchronized void sendOwnshipGeoAltitude() throws IOException {
@@ -1553,7 +2078,8 @@ public class GDL90Link extends AbstractLink
         + ownShipReportCount
         + ownshipGeoAltitudeCount
         + foreFlightIDCount
-        + AHRSCount;
+        + AHRSCount
+        + WHLAHRSCount;
   }
 
   @Override
@@ -1563,6 +2089,7 @@ public class GDL90Link extends AbstractLink
     ownshipGeoAltitudeCount = 0;
     foreFlightIDCount = 0;
     AHRSCount = 0;
+    WHLAHRSCount = 0;
   }
 
   @Override
