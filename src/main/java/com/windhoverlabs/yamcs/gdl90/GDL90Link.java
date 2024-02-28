@@ -388,9 +388,10 @@ public class GDL90Link extends AbstractLink
 
   @Override
   public Spec getSpec() {
-    Spec spec = new Spec();
+    //	  TODO: Do this properly eventually
+    //    Spec spec = super.getDefaultSpec();
 
-    return spec;
+    return null;
   }
 
   @Override

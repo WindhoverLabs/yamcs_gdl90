@@ -9,7 +9,7 @@
 	<name>YAMCS plugin for GDL90 standard.</name>
 
 	<properties>
-		<yamcsVersion>5.7.9</yamcsVersion>
+		<yamcsVersion>5.8.7</yamcsVersion>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
