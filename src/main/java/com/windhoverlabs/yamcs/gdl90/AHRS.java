@@ -77,22 +77,7 @@ public class AHRS {
     byte[] packedPitchBytes = ByteBuffer.allocate(4).putInt(packedPitch).array();
     messageStream.write(packedPitchBytes[2]);
     messageStream.write(packedPitchBytes[3]);
-
-    //    Heading = -80;
-    //    Heading = 147;
-    //    Heading = 0b10110111110;
     int packedHeading = packDegrees(FFB_PackForeFlightHeading((Heading)));
-
-    //    packedHeading = packedHeading |  0b00000101101111100000000000000000;
-
-    //    packedHeading = packedHeading | 0b00000000000000000000000000000001;
-
-    //    packedHeading = packedHeading | 1 << 31;
-
-    //    packedHeading = 0xffffffff;
-
-    //    0x01C2 = 450
-    //    int packedHeading = packDegrees(45);
 
     byte[] packedHeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
 
@@ -104,7 +89,6 @@ public class AHRS {
         break;
       case MAGNETIC:
         iaByte = (byte) (iaByte | (1 << 7));
-
         break;
       default:
         break;
