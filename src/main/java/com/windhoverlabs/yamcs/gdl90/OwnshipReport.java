@@ -147,7 +147,7 @@ public class OwnshipReport {
     byte dmByte = (byte) AltitudeBytes[2];
 
     if (TrueHeading) {
-      //      dmByte = (byte) (dmByte | (1 << 0));
+      dmByte = (byte) (dmByte | (1 << 0));
       dmByte = (byte) (dmByte | (1 << 1));
       dmByte = (byte) (dmByte | (1 << 3));
     }

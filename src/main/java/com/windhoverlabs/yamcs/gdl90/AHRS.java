@@ -79,7 +79,17 @@ public class AHRS {
     messageStream.write(packedPitchBytes[3]);
 
     //    Heading = -80;
+    //    Heading = 147;
+    //    Heading = 0b10110111110;
     int packedHeading = packDegrees(FFB_PackForeFlightHeading((Heading)));
+
+    //    packedHeading = packedHeading |  0b00000101101111100000000000000000;
+
+    //    packedHeading = packedHeading | 0b00000000000000000000000000000001;
+
+    //    packedHeading = packedHeading | 1 << 31;
+
+    //    packedHeading = 0xffffffff;
 
     //    0x01C2 = 450
     //    int packedHeading = packDegrees(45);
@@ -87,22 +97,18 @@ public class AHRS {
     byte[] packedHeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
 
     byte iaByte = packedHeadingBytes[2];
+    switch (HeadingType) {
+      case TRUE_HEADING:
+        iaByte = (byte) (iaByte | (0 << 7));
 
-    //        NOTE:It seems that the ForeFlight Docs have these definitions flipped
-    //    switch (HeadingType) {
-    //      case TRUE_HEADING:
-    //        //      packedHeading = packedHeading | (1 << 15);
-    //        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x01, 1);
-    //
-    //        break;
-    //      case MAGNETIC:
-    //        //      packedHeading = packedHeading | ~(1 << 15);
-    //        iaByte = (byte) setNibble(packedHeadingBytes[2], 0x00, 1);
-    //
-    //        break;
-    //      default:
-    //        break;
-    //    }
+        break;
+      case MAGNETIC:
+        iaByte = (byte) (iaByte | (1 << 7));
+
+        break;
+      default:
+        break;
+    }
     messageStream.write(iaByte);
     messageStream.write(packedHeadingBytes[3]);
 
