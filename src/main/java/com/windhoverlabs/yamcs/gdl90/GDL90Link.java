@@ -1557,6 +1557,126 @@ public class GDL90Link extends AbstractLink
           break;
       }
     }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue northVel = paramsToSend.get("NorthVel");
+
+    if (northVel != null) {
+      switch (northVel.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          //            	Assumes the PV is in meters/second. Convert to Knots
+          ahrs.northVel = northVel.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.northVel = northVel.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue eastVel = paramsToSend.get("EastVel");
+
+    if (eastVel != null) {
+      switch (eastVel.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          //            	Assumes the PV is in meters/second. Convert to Knots
+          ahrs.eastVel = eastVel.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.eastVel = eastVel.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue downVel = paramsToSend.get("DownVel");
+
+    if (downVel != null) {
+      switch (downVel.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          //            	Assumes the PV is in meters/second. Convert to Knots
+          ahrs.downVel = downVel.getEngValue().getDoubleValue();
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.downVel = downVel.getEngValue().getFloatValue();
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
   }
 
   private void calcQT(AHRS ahrs) {
