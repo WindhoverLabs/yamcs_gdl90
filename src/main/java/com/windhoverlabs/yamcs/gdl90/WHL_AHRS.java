@@ -57,7 +57,9 @@ public class WHL_AHRS {
   public double Lon;
   public double Alt;
 
-  public double Groundspeed;
+  public double northVel;
+  public double eastVel;
+  public double downVel;
 
   public byte[] toBytes() throws Exception {
 
@@ -138,16 +140,38 @@ public class WHL_AHRS {
     messageStream.write(packedAltBytes[6]);
     messageStream.write(packedAltBytes[7]);
 
-    byte[] GroundspeedAltBytes =
-        ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putDouble(Groundspeed).array();
-    messageStream.write(GroundspeedAltBytes[0]);
-    messageStream.write(GroundspeedAltBytes[1]);
-    messageStream.write(GroundspeedAltBytes[2]);
-    messageStream.write(GroundspeedAltBytes[3]);
-    messageStream.write(GroundspeedAltBytes[4]);
-    messageStream.write(GroundspeedAltBytes[5]);
-    messageStream.write(GroundspeedAltBytes[6]);
-    messageStream.write(GroundspeedAltBytes[7]);
+    byte[] NorthtBytes =
+        ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putDouble(northVel).array();
+    messageStream.write(NorthtBytes[0]);
+    messageStream.write(NorthtBytes[1]);
+    messageStream.write(NorthtBytes[2]);
+    messageStream.write(NorthtBytes[3]);
+    messageStream.write(NorthtBytes[4]);
+    messageStream.write(NorthtBytes[5]);
+    messageStream.write(NorthtBytes[6]);
+    messageStream.write(NorthtBytes[7]);
+
+    byte[] EastBytes =
+        ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putDouble(eastVel).array();
+    messageStream.write(EastBytes[0]);
+    messageStream.write(EastBytes[1]);
+    messageStream.write(EastBytes[2]);
+    messageStream.write(EastBytes[3]);
+    messageStream.write(EastBytes[4]);
+    messageStream.write(EastBytes[5]);
+    messageStream.write(EastBytes[6]);
+    messageStream.write(EastBytes[7]);
+
+    byte[] DownBytes =
+        ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putDouble(downVel).array();
+    messageStream.write(DownBytes[0]);
+    messageStream.write(DownBytes[1]);
+    messageStream.write(DownBytes[2]);
+    messageStream.write(DownBytes[3]);
+    messageStream.write(DownBytes[4]);
+    messageStream.write(DownBytes[5]);
+    messageStream.write(DownBytes[6]);
+    messageStream.write(DownBytes[7]);
 
     byte[] crcData = messageStream.toByteArray();
     int crc = CrcTable.crcCompute(crcData, 0, crcData.length);
