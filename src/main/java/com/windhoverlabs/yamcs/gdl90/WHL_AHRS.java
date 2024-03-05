@@ -57,6 +57,8 @@ public class WHL_AHRS {
   public double Lon;
   public double Alt;
 
+  public double Groundspeed;
+
   public byte[] toBytes() throws Exception {
 
     ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
@@ -135,6 +137,17 @@ public class WHL_AHRS {
     messageStream.write(packedAltBytes[5]);
     messageStream.write(packedAltBytes[6]);
     messageStream.write(packedAltBytes[7]);
+
+    byte[] GroundspeedAltBytes =
+        ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putDouble(Groundspeed).array();
+    messageStream.write(GroundspeedAltBytes[0]);
+    messageStream.write(GroundspeedAltBytes[1]);
+    messageStream.write(GroundspeedAltBytes[2]);
+    messageStream.write(GroundspeedAltBytes[3]);
+    messageStream.write(GroundspeedAltBytes[4]);
+    messageStream.write(GroundspeedAltBytes[5]);
+    messageStream.write(GroundspeedAltBytes[6]);
+    messageStream.write(GroundspeedAltBytes[7]);
 
     byte[] crcData = messageStream.toByteArray();
     int crc = CrcTable.crcCompute(crcData, 0, crcData.length);

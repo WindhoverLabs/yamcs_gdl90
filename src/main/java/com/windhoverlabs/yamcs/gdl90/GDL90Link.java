@@ -1760,6 +1760,47 @@ public class GDL90Link extends AbstractLink
           break;
       }
     }
+
+    org.yamcs.protobuf.Pvalue.ParameterValue pvHorizontalSpeed =
+        paramsToSend.get("HorizontalSpeed");
+
+    if (pvHorizontalSpeed != null) {
+      switch (pvHorizontalSpeed.getEngValue().getType()) {
+        case AGGREGATE:
+          break;
+        case ARRAY:
+          break;
+        case BINARY:
+          break;
+        case BOOLEAN:
+          break;
+        case DOUBLE:
+          //            	Assumes the PV is in meters/second. Convert to Knots
+          ahrs.Groundspeed = mpsToKnots((float) pvHorizontalSpeed.getEngValue().getDoubleValue());
+          break;
+        case ENUMERATED:
+          break;
+        case FLOAT:
+          ahrs.Groundspeed = mpsToKnots(pvHorizontalSpeed.getEngValue().getFloatValue());
+          break;
+        case NONE:
+          break;
+        case SINT32:
+          break;
+        case SINT64:
+          break;
+        case STRING:
+          break;
+        case TIMESTAMP:
+          break;
+        case UINT32:
+          break;
+        case UINT64:
+          break;
+        default:
+          break;
+      }
+    }
     QT newQT = new QT();
     if (qt != null) {
       switch (qt.getEngValue().getType()) {
