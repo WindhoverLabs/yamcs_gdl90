@@ -68,34 +68,47 @@ dataLinks:
     ownShipGeoAltitudeStreamName: "ownShipGeoAltitude"
     ForeFlightIDStreamName: "ForeFlightIDs"
     AHRSStreamName: "AHRS"
+    WHLAHRSStreamName: "WHLAHRSStreamName"
     DataSource: PV
     1HZ_Messages: [0x098b]
     5HZ_Messages: [0x098d]
+    heartbeatRate: 100 #HZ
+    ownShipReportRate: 100 #HZ
+    ownShipGeoAltitudeRate: 100 #HZ
+    WHLAHRSRate: 100 # HZ
+    AHRSRate: 100 #HZ
+    yamcsHost: http://127.0.0.1
+    yamcsPort: 8090
     gdl90Devices:
       # - gdl90_host: "172.16.100.93"
       #   gdl90_port: 4000
-        # - gdl90_host: "172.16.100.132"
-        #   gdl90_port: 4000
-        #   blackListed: true
-      - gdl90_host: "192.168.243.97"
+      # - gdl90_host: "172.16.100.132"
+      #   gdl90_port: 4000
+      - gdl90_host: "172.16.100.116"
         gdl90_port: 4000
-        blackListed: false
-    pvMap:
-      Altitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Alt"
-      Latitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lat"
-      Longitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lon"
-      # AHRS:
-      #   Roll: "/cfs/cpd/apps/vn310/Roll"
-      #   Pitch: "/cfs/cpd/apps/vn310/Pitch"
-      #   AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
-      #   # Qt_PV?
-      #   mode: QUATERNION
-      # True_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
-      # Magnetic_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
-      Roll: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Roll"
-      Pitch: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Pitch"
-      AHRS_Heading: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Yaw"
-      HorizontalSpeed: "/cfs/cpd/apps/fac/FAC_ALPHA_CONTROLLER_MID.ControlData.groundspeed"
+        blackListed: true
+    pvConfig:
+      AHRS_Mode: QT # [YPR, QT]
+      pvMap:
+        Altitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Alt"
+        Latitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lat"
+        Longitude: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.Lon"
+        # AHRS:
+        #   Roll: "/cfs/cpd/apps/vn310/Roll"
+        #   Pitch: "/cfs/cpd/apps/vn310/Pitch"
+        #   AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
+        #   # Qt_PV?
+        #   mode: QUATERNION
+        # True_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
+        # Magnetic_AHRS_Heading: "/cfs/cpd/apps/vn310/Yaw"
+        Roll: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Roll"
+        Pitch: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Pitch"
+        AHRS_Heading: "/cfs/cpd/apps/vn310/VN310_HK_TLM_MID.AttitudeData.Yaw"
+        HorizontalSpeed: "/cfs/cpd/apps/fac/FAC_ALPHA_CONTROLLER_MID.ControlData.groundspeed"
+        Qt: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_ATTITUDE_MID.Q"
+        NorthVel: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.VelN"
+        EastVel: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.VelE"
+        DownVel: "/cfs/cpd/apps/px4lib/PX4_VEHICLE_GLOBAL_POSITION_MID.VelD"
     start: "2024-02-17T20:38:11.25Z"
     stop: "2024-02-17T20:42:45.25Z"
     realtime: false
