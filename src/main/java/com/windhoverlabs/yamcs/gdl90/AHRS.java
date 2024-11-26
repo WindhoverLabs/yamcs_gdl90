@@ -33,6 +33,7 @@
 
 package com.windhoverlabs.yamcs.gdl90;
 
+import com.windhoverlabs.yamcs.gdl90.GDL90Link.AHRS_MODE;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
@@ -46,15 +47,17 @@ import java.nio.ByteBuffer;
 public class AHRS {
 
   byte FlagByte = 0x7E;
-  private byte MessageID = 0x65;
-  private byte AHRSSubMessageID = 0x01;
-  public int Roll;
-  public int Pitch;
-  public int Heading;
+  public static final byte MessageID = 0x65;
+  public static final byte AHRSSubMessageID = 0x01;
+  public double Roll;
+  public double Pitch;
+  public double Heading;
   public int IndicatedAirspeed;
   public int TrueAirspeed;
 
-  public AHRSHeading HeadingSource;
+  public AHRSHeadingType HeadingType;
+
+  public AHRS_MODE ahrsMode;
 
   public byte[] toBytes() throws Exception {
 
@@ -74,11 +77,23 @@ public class AHRS {
     byte[] packedPitchBytes = ByteBuffer.allocate(4).putInt(packedPitch).array();
     messageStream.write(packedPitchBytes[2]);
     messageStream.write(packedPitchBytes[3]);
-
-    int packedHeading = packDegrees(Heading);
+    int packedHeading = packDegrees(FFB_PackForeFlightHeading((Heading)));
 
     byte[] packedHeadingBytes = ByteBuffer.allocate(4).putInt(packedHeading).array();
-    messageStream.write(packedHeadingBytes[2]);
+
+    byte iaByte = packedHeadingBytes[2];
+    switch (HeadingType) {
+      case TRUE_HEADING:
+        iaByte = (byte) (iaByte | (0 << 7));
+
+        break;
+      case MAGNETIC:
+        iaByte = (byte) (iaByte | (1 << 7));
+        break;
+      default:
+        break;
+    }
+    messageStream.write(iaByte);
     messageStream.write(packedHeadingBytes[3]);
 
     byte[] IndicatedAirspeedBytes = ByteBuffer.allocate(4).putInt(IndicatedAirspeed).array();
@@ -135,7 +150,24 @@ public class AHRS {
     return (int) ((1000 + altFt) / 25);
   }
 
-  public int packDegrees(int deg) {
-    return ((deg * 10));
+  public int packDegrees(double deg) {
+    int tenth = ((int) ((deg % ((int) deg)) * 10));
+    return ((int) ((deg * 10)) + tenth);
+  }
+
+  //  public int packDegrees(double deg) {
+  //    return ((int) ((deg * 10)));
+  //  }
+
+  public double FFB_PackForeFlightHeading(double heading) {
+
+    // Connvert heading of [-180, 180] to [-360,360]
+    double PackedHeading = heading;
+    if (heading < 0) {
+      PackedHeading = 360 + heading;
+    } else {
+      PackedHeading = heading;
+    }
+    return (PackedHeading);
   }
 }

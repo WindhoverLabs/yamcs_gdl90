@@ -1,4 +1,6 @@
 # Logs
+**/.classpath
+.classpath
 logs
 *.log
 npm-debug.log*

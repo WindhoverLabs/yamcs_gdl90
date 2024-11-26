@@ -33,7 +33,7 @@
 
 package com.windhoverlabs.yamcs.gdl90;
 
-public enum AHRSHeading {
-  TRUE,
+public enum AHRSHeadingType {
+  TRUE_HEADING,
   MAGNETIC;
 }

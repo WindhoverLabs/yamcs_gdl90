@@ -45,7 +45,7 @@ public class OwnshipReport {
 
   byte FlagByte = 0x7E;
   //	First Byte
-  private byte MessageID = 10;
+  public static final byte MessageID = 10;
 
   //	  Traffic Alert Status (s)
   public boolean TrafficAlertStatus;
@@ -146,13 +146,18 @@ public class OwnshipReport {
 
     byte dmByte = (byte) AltitudeBytes[2];
 
-    if (TrueTrackAngle) {
+    if (TrueHeading) {
       dmByte = (byte) (dmByte | (1 << 0));
+      dmByte = (byte) (dmByte | (1 << 1));
+      dmByte = (byte) (dmByte | (1 << 3));
     }
-    if (Airborne) {
-      //    	TODO:Set bit accordingly
-    }
+    //    if (Airborne) {
+    //      //    	TODO:Set bit accordingly
+    //    }
+    //
+    //    dmByte = (byte) setNibble(dmByte, 0x03, 1);
 
+    //    dmByte = 0x09;
     int dddm = packedAltitude << 20 | (dmByte);
 
     // hhh Big Endian
